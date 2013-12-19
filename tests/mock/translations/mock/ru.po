@@ -1,0 +1,52 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2013-12-19T13:15:45+04:00\n"
+"POT-Creation-Date: 2013-12-19T13:15:45+04:00\n"
+"Language: ru\n"
+"X-Generator: Poedit 1.6.2\n"
+
+msgid "/**\n * UMI.Framework (http://umi-framework.ru/)\n *\n * @link      http://github.com/Umisoft/framework for the canonical source repository\n * @copyright Copyright (c) 2007-2013 Umisoft ltd. (http://umisoft.ru/)\n * @license   http://umi-framework.ru/license/bsd-3 BSD-3 License\n */"
+msgstr "/**\n * Давным-давно, в одной далекой-предалекой галактике...\n *\n * @link      http://github.com/Umisoft/framework for the canonical source repository\n * @copyright Copyright (c) 2007-2013 Umisoft ltd. (http://umisoft.ru/)\n * @license   http://umi-framework.ru/license/bsd-3 BSD-3 License\n */"
+
+msgid "/**\n * Class CompleteDocumentedClass\n *\n * @property string $foo This is foo\n * @method  string bar This is bar\n */"
+msgstr ""
+
+msgid "/**\n     * This is publicFoo\n     */"
+msgstr ""
+
+msgid "/**\n     * This is protectedFoo\n     */"
+msgstr ""
+
+msgid "/**\n     * This is publicFooWithParams\n     *\n     * @param mixed $foo This is foo\n     * @param mixed $bar This is bar\n     *\n     * @return boolean Returns boolean\n     */"
+msgstr ""
+
+msgid "/**\n     * @param mixed $foo\n     * @param mixed $bar\n     *\n     * @return boolean\n     */"
+msgstr ""
+
+msgid "/**\n     * @return boolean\n     */"
+msgstr ""
+
+msgid "/**\n     * {@inheritdoc}\n     */"
+msgstr ""
+
+msgid "/**\n     * This is code examples:\n     * <code>function(){return \"foo\";}</code>\n     *\n     * There also has special case\n     * <code>\n     * protected function methodWithCodeInComment(){\n     *     return true;\n     * }\n     * </code>\n     *\n     * Save this text\n     * @return boolean\n     */"
+msgstr ""
+
+msgid "/**\n * Class ImplementMe\n */"
+msgstr ""
+
+msgid "/**\n     * ImplementMe::implementation\n     */"
+msgstr ""
+
+msgid "/**\n * Class CompleteDocumentedClass\n */"
+msgstr ""
+
+msgid "/**\n     * This is publicFooWithParams\n     *\n     * @param $foo This is foo\n     * @param $bar This is bar\n     *\n     * @return boolean Returns boolean\n     */"
+msgstr ""
