@@ -14,6 +14,7 @@ use Gettext\Translation;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Underscore\Types\Arrays;
+use Underscore\Types\String;
 
 /**
  * Injects ability to output localized versions of every parsed lib version
@@ -33,6 +34,11 @@ class TranslatorPlugin
      */
     private $language;
 
+    /**
+     * @param $language
+     * @param Sami $container
+     * @param array $options
+     */
     function __construct($language, Sami $container, $options = [])
     {
         $this->container = $container;
@@ -49,10 +55,12 @@ class TranslatorPlugin
             mkdir($this->translationsPath, 0777, true);
         }
 
-        // we have substitute on field
+        // substitute any iterator passed to Sami
         $iterator = new MultilangFilesIterator($container['files']);
-        $iterator->setTranslator($this);
         $container['files'] = $iterator;
+
+        // setup stream wrapper
+        TranslateStreamWrapper::setupTranslatorPlugin($this);
     }
 
     /**
@@ -60,6 +68,7 @@ class TranslatorPlugin
      *
      * @param $path
      *
+     * @throws \RuntimeException
      * @return string
      */
     public function parseDocsFromFile($path)
@@ -68,7 +77,9 @@ class TranslatorPlugin
 
         $allTokens = token_get_all($fileContents);
 
-        $namespace = $this->detectSourceNamespace($allTokens, $fileContents);
+        $lines = self::toLines($fileContents);
+
+        $namespace = $this->detectSourceNamespace($allTokens, $lines);
 
         $translationsPath = $this->translationsPath . '/' . str_replace('\\', '/', $namespace);
         if (!is_dir($translationsPath)) {
@@ -80,28 +91,37 @@ class TranslatorPlugin
         $poFileName = $translationsPath . '/' . $this->language . '.po';
         $poEntries = $this->setupPoEntries($poFileName);
 
-        $phpDocs = Arrays::from($allTokens)
-            ->filter(
-            function ($elem) {
-                return $elem[0] == T_DOC_COMMENT;
+        $phpDocs = [];
+        foreach ($allTokens as $tok) {
+            //todo ignore @inheritdoc & all «@marker»-only comments
+            if ($tok[0] == T_DOC_COMMENT) {
+                $phpDocs[$tok[2]] = $tok[1];
             }
-        )
-            ->pluck(1)
-            ->obtain();
+        }
+
         $replaces = [];
-        foreach ($phpDocs as $phpDoc) {
-            //todo ignore @inheritdoc
+        $context = String::sliceTo(basename($path), '.php');
+
+        foreach ($phpDocs as $lineNum => $phpDoc) {
             /** @var $translation Translation */
-            $translation = $poEntries->find(null, $phpDoc);
+            $translation = $poEntries->find($context, $phpDoc);
             if ($translation) {
                 $replaces[$phpDoc] = $translation->getTranslation();
             } else {
-                $poEntries->insert(null, $phpDoc);
+                $translation = $poEntries->insert($context, $phpDoc);
+                $translation->setTranslation($phpDoc);
+                $i = 2;
+                do {
+                    $commentLine = trim($lines[$lineNum + $i], ' {');
+                    $i++;
+                } while (substr($commentLine, 0, 1) == '*');
+                $translation->addComment($commentLine);
             }
         }
+
         //todo diff with rest of outdated (nonexistent anymore) entries
         $generated = $generator->generateFile($poEntries, $poFileName);
-        if(!$generated){
+        if (!$generated) {
             throw new \RuntimeException("Generation of $poFileName failed");
         }
         return strtr($fileContents, $replaces);
@@ -129,11 +149,11 @@ class TranslatorPlugin
 
     /**
      * @param $allTokens
-     * @param $fileContents
+     * @param $lines
      *
      * @return mixed
      */
-    private function detectSourceNamespace($allTokens, $fileContents)
+    private function detectSourceNamespace($allTokens, $lines)
     {
         $nsLine = Arrays::from($allTokens)
                 ->filter(
@@ -144,7 +164,7 @@ class TranslatorPlugin
                 ->first()
                 ->obtain()[2] - 1;
 
-        $namespaceDeclaration = preg_split("/\r?\n/", $fileContents)[$nsLine];
+        $namespaceDeclaration = $lines[$nsLine];
         preg_match('/namespace\s+(?P<ns>[a-z\_]+)/i', $namespaceDeclaration, $matches);
 
         return $matches['ns'];
@@ -171,5 +191,15 @@ class TranslatorPlugin
         }
 
         return $poEntries;
+    }
+
+    /**
+     * @param $fileContents
+     *
+     * @return array
+     */
+    protected static function toLines($fileContents)
+    {
+        return preg_split("/((\r?\n)|(\r\n?))/", $fileContents);
     }
 }

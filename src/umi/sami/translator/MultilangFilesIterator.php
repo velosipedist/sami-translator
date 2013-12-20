@@ -9,11 +9,6 @@ class MultilangFilesIterator extends \IteratorIterator
 {
     const ID = 'umi\sami\translator\Iterator';
 
-    /**
-     * @var TranslatorPlugin $translator
-     */
-    private $translator;
-
     public function __construct($iterator)
     {
         parent::__construct($iterator);
@@ -24,31 +19,14 @@ class MultilangFilesIterator extends \IteratorIterator
             ->exclude('vendor')
             ->exclude('tests')
             ->name('*.php');
-        if (!in_array("doclocal", stream_get_wrappers())) {
-            stream_wrapper_register('doclocal','umi\sami\translator\TranslateStreamWrapper');
-        }
     }
-
 
     /**
      * {@inheritdoc}
      */
     public function current()
     {
-        return 'doclocal://' . parent::current()->getPathname();
-    }
-
-    /**
-     * @param \umi\sami\translator\TranslatorPlugin $translator
-     */
-    public function setTranslator($translator)
-    {
-        $this->translator = $translator;
-        TranslateStreamWrapper::setTranslator($translator);
-    }
-
-    public function srcPath()
-    {
-        return $this->getInnerIterator();
+        return 'doclocal://' . parent::current()
+            ->getPathname();
     }
 }

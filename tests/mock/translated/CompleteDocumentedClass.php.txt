@@ -1,6 +1,6 @@
 <?php
 /**
- * UMI.Framework (http://umi-framework.ru/)
+ * Фреймворк Юми
  *
  * @link      http://github.com/Umisoft/framework for the canonical source repository
  * @copyright Copyright (c) 2007-2013 Umisoft ltd. (http://umisoft.ru/)
@@ -11,7 +11,7 @@ namespace mock;
 use Serializable;
 
 /**
- * Class CompleteDocumentedClass
+ * Класс CompleteDocumentedClass
  *
  * @property string $foo This is foo
  * @method  string bar This is bar
@@ -19,7 +19,7 @@ use Serializable;
 class CompleteDocumentedClass implements ImplementMe
 {
     /**
-     * This is publicFoo
+     * Это publicFoo
      */
     public function publicFoo()
     {
@@ -27,7 +27,7 @@ class CompleteDocumentedClass implements ImplementMe
     }
 
     /**
-     * This is protectedFoo
+     * Это protectedFoo
      */
     protected function protectedFoo()
     {
@@ -35,10 +35,10 @@ class CompleteDocumentedClass implements ImplementMe
     }
 
     /**
-     * @param mixed $foo This is foo
-     * @param mixed $bar This is bar
+     * @param mixed $foo Это foo
+     * @param mixed $bar А это bar
      *
-     * @return boolean Returns boolean
+     * @return boolean Вернет булево значение
      */
     public function methodWithParams($foo, $bar)
     {
@@ -46,10 +46,10 @@ class CompleteDocumentedClass implements ImplementMe
     }
 
     /**
-     * This is publicFooWithParamsAndComments
+     * Это метод с параметрами и комментарием
      *
-     * @param mixed $foo This is foo
-     * @param mixed $bar This is bar
+     * @param mixed $foo Это foo
+     * @param mixed $bar А это bar
      *
      * @return boolean Returns boolean
      */
@@ -85,17 +85,17 @@ class CompleteDocumentedClass implements ImplementMe
     }
 
     /**
-     * This is code examples:
+     * Это примеры кода:
      * <code>function(){return "foo";}</code>
      *
-     * There also has special case
+     * А также особый случай:
      * <code>
      * protected function methodWithCodeInComment(){
      *     return true;
      * }
      * </code>
      *
-     * Save this text
+     * Этот текст должен сохраниться
      * @return boolean
      */
     protected function methodWithCodeInComment(){

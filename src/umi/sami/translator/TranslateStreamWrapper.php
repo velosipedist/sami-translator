@@ -17,7 +17,7 @@ class TranslateStreamWrapper
     /**
      * @var int $counter
      */
-    private $counter = 0;
+    private $position = 0;
     /**
      * @var string $contents
      */
@@ -42,9 +42,12 @@ class TranslateStreamWrapper
     /**
      * @param TranslatorPlugin $translator
      */
-    public static function setTranslator($translator)
+    public static function setupTranslatorPlugin($translator)
     {
         self::$translator = $translator;
+        if (!in_array("doclocal", stream_get_wrappers())) {
+            stream_wrapper_register('doclocal', __CLASS__);
+        }
     }
 
     /**
@@ -60,7 +63,7 @@ class TranslateStreamWrapper
     function stream_open($path, $mode, $options, &$opened_path)
     {
         $this->currentFile = $path;
-        $this->counter = 0;
+        $this->position = 0;
         $this->contents = self::$translator->parseDocsFromFile($this->extractRealFileName($this->currentFile));
         $this->length = $this->bytes($this->contents, 'utf-8');
 
@@ -81,8 +84,8 @@ class TranslateStreamWrapper
 
     function stream_read($count)
     {
-        $range = $this->bytesRange($this->contents, $this->counter, $count, 'utf-8');
-        $this->counter += $count;
+        $range = $this->bytesRange($this->contents, $this->position, $count, 'utf-8');
+        $this->position += $count;
 
         return $range;
     }
@@ -94,7 +97,7 @@ class TranslateStreamWrapper
 
     public function stream_tell()
     {
-        return $this->counter;
+        return $this->position;
     }
 
     function stream_metadata($path, $option, $var)
@@ -123,7 +126,7 @@ class TranslateStreamWrapper
 
     public function stream_eof()
     {
-        return $this->counter >= $this->bytes($this->contents);
+        return $this->position >= $this->bytes($this->contents);
     }
 
     public function stream_seek($offset, $whence = SEEK_SET)
