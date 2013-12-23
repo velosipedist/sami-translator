@@ -139,11 +139,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    public function testPathVersion()
-    {
-        //todo with/without versions path must be different
-    }
-
     public function testDetectNamespace()
     {
         $sami = $this->setupSami(__DIR__ . '/../mock/namespaces');
