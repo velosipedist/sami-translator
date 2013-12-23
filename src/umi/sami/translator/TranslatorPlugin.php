@@ -89,7 +89,7 @@ class TranslatorPlugin
     private static function generator()
     {
         if (is_null(self::$generator)) {
-            self::$generator = new \Gettext\Generators\Po();
+            self::$generator = new PoGenerator();
         }
         return self::$generator;
     }
@@ -106,19 +106,6 @@ class TranslatorPlugin
             $e::$ignoreDocPatterns = $this->ignoreDocPatterns;
         }
         return self::$docExtractor;
-    }
-
-    /**
-     * .po extractor singleton
-     *
-     * @return PhpdocExtractor
-     */
-    private function poExtractor()
-    {
-        if (is_null(self::$poExtractor)) {
-            self::$poExtractor = new PoExtractor();
-        }
-        return self::$poExtractor;
     }
 
     /**
@@ -147,12 +134,10 @@ class TranslatorPlugin
 
         $translationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.po';
         $compiledTranslationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.mo';
-        $poExtractor = $this->poExtractor();
         $moExtractor = new Mo();
 
         try {
             $entriesTranslated = $moExtractor->extract($compiledTranslationsFileName);
-//            $entriesTranslated = $poExtractor->extract($translationsFileName);
         } catch (\InvalidArgumentException $e) {
             // if there was no template — create new & add default translations
             $entriesTranslated = new Entries();

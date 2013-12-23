@@ -5,7 +5,7 @@
         "gettext/gettext": "1.0",
         "anahkiasen/underscore-php": "dev-master"
     },
-    "license": "BSD-3",
+    "license": "MIT",
     "autoload": {
         "psr-0": {
             "umi": "src/"

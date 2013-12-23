@@ -11,7 +11,6 @@ namespace umi\sami\translator\extractors;
 use Gettext\Entries;
 use Gettext\Extractors\Extractor;
 use Gettext\Translation;
-use Underscore\Types\Arrays;
 
 /**
  * Class PhpdocExtractor
@@ -22,7 +21,8 @@ class PhpdocExtractor extends Extractor
     public static $ignoreDocPatterns = [];
     private static $phpDocs;
 
-    static public function parse ($file, Entries $entries) {
+    static public function parse($file, Entries $entries)
+    {
         $fileContents = file_get_contents($file);
 
         $allTokens = token_get_all($fileContents);
@@ -31,20 +31,22 @@ class PhpdocExtractor extends Extractor
 
         $phpDocs = [];
         foreach ($allTokens as $tok) {
-            //todo ignore @inheritdoc & all «@marker»-only comments
             if ($tok[0] == T_DOC_COMMENT) {
                 $phpDocs[$tok[2]] = $tok[1];
             }
         }
         $ignoreDocPatterns = static::$ignoreDocPatterns;
-        $phpDocs = array_filter($phpDocs, function($doc) use ($ignoreDocPatterns){
-            foreach ($ignoreDocPatterns as $pattern) {
-                if (preg_match($pattern, $doc)) {
-                    return false;
+        $phpDocs = array_filter(
+            $phpDocs,
+            function ($doc) use ($ignoreDocPatterns) {
+                foreach ($ignoreDocPatterns as $pattern) {
+                    if (preg_match($pattern, $doc)) {
+                        return false;
+                    }
                 }
+                return true;
             }
-            return true;
-        });
+        );
 
         self::$phpDocs = $phpDocs;
 
@@ -58,7 +60,7 @@ class PhpdocExtractor extends Extractor
                 do {
                     $commentLine = trim($lines[$lineNum + $i], ' {');
                     $i++;
-                } while (preg_match('/^\s*\*/',$commentLine));
+                } while (preg_match('/^\s*\*/', $commentLine));
                 $translation->addComment(trim($commentLine));
             }
         }
