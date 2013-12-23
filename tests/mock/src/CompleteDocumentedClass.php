@@ -16,7 +16,7 @@ use Serializable;
  * @property string $foo This is foo
  * @method  string bar This is bar
  */
-class CompleteDocumentedClass implements ImplementMe
+class CompleteDocumentedClass
 {
     /**
      * This is publicFoo
