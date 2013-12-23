@@ -2,9 +2,10 @@
 namespace tests\unit;
 
 use Sami\Sami;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
-use umi\sami\translator\MultilangFilesIterator;
+use umi\sami\translator\ParseException;
 use umi\sami\translator\TranslatorPlugin;
 
 /**
@@ -14,13 +15,10 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 {
     public function setUp()
     {
-
-    }
-
-    public function tearDown()
-    {
-        //        $fs = new Filesystem();
-        //        $fs->remove(__DIR__ . '/../build');
+        $fs = new Filesystem();
+        $fs->remove(__DIR__ . '/../mock/translations');
+        $fs->remove(__DIR__ . '/../mock/build');
+        $fs->remove(__DIR__ . '/../mock/cache');
     }
 
     /**
@@ -28,11 +26,13 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      */
     private function createProcess()
     {
+        //todo just find vendor as root
         $cwd = __DIR__ . '/../mock/src';
+        $sami = realpath($cwd . '/../../../../../bin/sami.php');
+        $config = realpath($cwd . '/../../../demo/config-ru.php');
         $p = new Process(
-            'php ../../../vendor/sami/sami/sami.php update ../../../config.php',
-            $cwd,
-            ['sami.testdir' => '.']
+            'php "' . $sami . '" update "' . $config . '"',
+            $cwd
         );
 
         return $p;
@@ -40,28 +40,22 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
     public function testRunSuccessfully()
     {
-        $this->markTestIncomplete('debug me');
         $process = $this->createProcess();
 
         try {
             $code = $process->run();
             print "[OUTPUT] " . $process->getOutput();
         } catch (\Exception $e) {
+            print "[OUTPUT] " . $process->getOutput();
             $this->fail('Fail of process: ' . $e->getMessage());
         }
 
         $this->assertEquals(0, $code, 'Process must end up successfully');
-        $this->assertFileExists(__DIR__ . '/../mock/translations', 'Translations dir must be created');
-        $this->assertFileExists(__DIR__ . '/../mock/translations/master', 'Translations output must be created');
-        $this->assertFileExists(
-            __DIR__ . '/../mock/translations/master/mock/ru.po',
-            'Translations output must be saved'
-        );
     }
 
     public function testFileIterator()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami();
 
         // this decorating trick invokes inside TranslatePlugin
         $translator = new TranslatorPlugin('ru', $sami);
@@ -74,26 +68,97 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
             $content = file_get_contents($file);
             $this->assertStringStartsWith('<?php', $content);
         }
-        $this->assertFileExists(__DIR__ . '/../mock/translations/master/mock/CompleteDocumentedClass.ru.pot');
+        // version is master by default
+        $dirExpected = __DIR__ . '/../mock/translations/master/mock';
+        $this->assertFileExists($dirExpected . '/CompleteDocumentedClass.ru.po');
+        $this->assertFileExists($dirExpected . '/CompleteDocumentedClass.pot');
     }
 
-    public function testTranslationsPath()
+    public function testTranslationsPathPlaceholder()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami();
 
-        $translator = new TranslatorPlugin('ru', $sami,[
-            'translationsPath'=>__DIR__ . '/../mock/po'
+        $translator = new TranslatorPlugin('ru', $sami, [
+            'translationsPath' => '%build%/../translations/placeholded'
         ]);
         $i = $sami['files'];
-
         foreach ($i as $file) {
             // Sami relies on straight file_get_contents
             $content = file_get_contents($file);
-            $this->assertEquals(
-                file_get_contents(__DIR__.'/../mock/translated/'.basename($file).'.txt'),
-                $content,
-                'Source must be translated'
-            );
+        }
+        $dirExpected = __DIR__ . '/../mock/translations/placeholded';
+        $this->assertTrue(
+            is_dir($dirExpected),
+            'Placeholded dir must be created'
+        );
+        $this->assertFileExists(
+            $dirExpected . '/mock/CompleteDocumentedClass.pot',
+            'Placeholded dir must contain translations template'
+        );
+    }
+
+    public function testTranslationsPathVersionPlaceholder()
+    {
+        $sami = $this->setupSami();
+        $sami['build_dir'] = __DIR__ . '/../mock/build/%version%';
+
+        $sami['version'] = 'master';
+        $dirExpected = __DIR__ . '/../mock/translations/version-placeholded/master';
+
+        $translator = new TranslatorPlugin('ru', $sami, [
+            'translationsPath' => '%build%/../../translations/version-placeholded/%version%'
+        ]);
+        $i = $sami['files'];
+        foreach ($i as $file) {
+            // Sami relies on straight file_get_contents
+            $content = file_get_contents($file);
+        }
+        $this->assertTrue(
+            is_dir($dirExpected),
+            'Version dir must be created'
+        );
+        $this->assertFileExists(
+            $dirExpected . '/mock/CompleteDocumentedClass.pot',
+            'Version dir must contain translations template'
+        );
+
+        // and now for something different
+        $sami['version'] = 'slave';
+        $dirExpected = __DIR__ . '/../mock/translations/version-placeholded/slave';
+        foreach ($i as $file) {
+            // Sami relies on straight file_get_contents
+            $content = file_get_contents($file);
+        }
+        $this->assertTrue(
+            is_dir($dirExpected),
+            'Version2 dir must be created'
+        );
+        $this->assertFileExists(
+            $dirExpected . '/mock/CompleteDocumentedClass.pot',
+            'Version2 dir must contain translations template'
+        );
+    }
+
+    public function testPathVersion()
+    {
+        //todo with/without versions path must be different
+    }
+
+    public function testDetectNamespace()
+    {
+        $sami = $this->setupSami(__DIR__ . '/../mock/namespaces');
+
+        $translator = new TranslatorPlugin('ru', $sami);
+
+        try {
+            foreach ($sami['files'] as $file) {
+                // Sami relies on straight file_get_contents
+                $content = file_get_contents($file);
+            }
+        } catch (ParseException $e) {
+            if ($e->getCode() == ParseException::NAMESPACE_NOT_FOUND) {
+                $this->fail("Namespace must be found in $file");
+            }
         }
     }
 
@@ -102,13 +167,25 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      *
      * @return Sami
      */
-    protected function setupSami($path)
+    protected function setupSami($path = false)
     {
+        if ($path === false) {
+            $path = __DIR__ . '/../mock/src';
+        }
         chdir($path);
         // empty finder - to initial container
         $internalFinder = Finder::create()
-            ->in($path);
+            ->in($path)
+            ->exclude('.git')
+            ->exclude('.idea')
+            ->exclude('vendor')
+            ->exclude('tests')
+            ->exclude('docs')
+            ->name('*.php');
         $sami = new Sami($internalFinder);
+        $sami['build_dir'] = __DIR__ . '/../mock/build/';
+        $sami['cache_dir'] = __DIR__ . '/../mock/cache/';
+        $sami['default_opened_level'] = 1;
         return $sami;
     }
 

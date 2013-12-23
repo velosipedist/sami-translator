@@ -4,22 +4,11 @@ namespace umi\sami\translator;
 /**
  * Iterates the same sources as inner iterator,
  * but delegates source file pre-processing to localized source
+ * todo rename class to something transparent
  */
 class MultilangFilesIterator extends \IteratorIterator
 {
     const ID = 'umi\sami\translator\Iterator';
-
-    public function __construct($iterator)
-    {
-        parent::__construct($iterator);
-
-        $iterator
-            ->exclude('.git')
-            ->exclude('.idea')
-            ->exclude('vendor')
-            ->exclude('tests')
-            ->name('*.php');
-    }
 
     /**
      * {@inheritdoc}

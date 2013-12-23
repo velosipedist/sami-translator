@@ -42,7 +42,7 @@ class TranslateStreamWrapper
     /**
      * @param TranslatorPlugin $translator
      */
-    public static function setupTranslatorPlugin($translator)
+    public static function setupTranslatorPlugin(TranslatorPlugin $translator)
     {
         self::$translator = $translator;
         if (!in_array("doclocal", stream_get_wrappers())) {

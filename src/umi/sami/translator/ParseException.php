@@ -6,16 +6,12 @@
  * @copyright Copyright (c) 2007-2013 Umisoft ltd. (http://umisoft.ru/)
  * @license   http://umi-framework.ru/license/bsd-3 BSD-3 License
  */
-namespace mock;
+namespace umi\sami\translator;
 
 /**
- * Class ImplementMe
+ * Class ParseException
  */
-interface ImplementMe
+class ParseException extends \Exception
 {
-    /**
-     * ImplementMe::implementation
-     */
-    function implementation();
+    const NAMESPACE_NOT_FOUND = 1;
 }
- 

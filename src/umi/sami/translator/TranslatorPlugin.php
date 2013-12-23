@@ -9,11 +9,13 @@
 namespace umi\sami\translator;
 
 use Gettext\Entries;
-use Gettext\Extractors\Po;
+use Gettext\Extractors\Po as PoExtractor;
+use Gettext\Generators\Po as PoGenerator;
 use Gettext\Translation;
+use Sami\Project;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
-use Underscore\Types\Arrays;
+use umi\sami\translator\extractors\PhpdocExtractor;
 use Underscore\Types\String;
 
 /**
@@ -23,7 +25,19 @@ class TranslatorPlugin
 {
     const ID = 'umi\sami\translator\TranslatorPlugin';
     const PROTOCOL = 'doclocal';
+
+    /**
+     * @var PhpdocExtractor $extractor
+     */
+    protected static $docExtractor;
+    /**
+     * @var PoExtractor $poExtractor
+     */
+    protected static $poExtractor;
+    protected static $generator;
     protected $container;
+    protected $ignoreDocPatterns = [];
+    protected $commonBuildDir;
 
     /**
      * @var string $translationsPath
@@ -44,16 +58,19 @@ class TranslatorPlugin
         $this->container = $container;
         $this->language = $language;
         $this->filesys = new Filesystem();
+        $this->commonBuildDir = $container['build_dir'];
+
         $this->translationsPath = isset($options['translationsPath'])
-            ? $options['translationsPath']
+            ? $this->parseTranslationsPath($options['translationsPath'])
             : $this->defaultTranslationsPath($container);
-        $this->translationsPath = $this->normalizePath($this->translationsPath);
+
+        $this->ignoreDocPatterns = isset($options['ignoreDocPatterns'])
+            ? $options['ignoreDocPatterns']
+            : [];
+        //        $this->translationsPath = $this->normalizePath($this->translationsPath);
+
         $container['build_dir'] .= '/' . $language;
         $container['cache_dir'] .= '/' . $language;
-
-        if (!is_dir($this->translationsPath)) {
-            mkdir($this->translationsPath, 0777, true);
-        }
 
         // substitute any iterator passed to Sami
         $iterator = new MultilangFilesIterator($container['files']);
@@ -64,7 +81,47 @@ class TranslatorPlugin
     }
 
     /**
-     * Open source code, replace already translated original docs with .po entries.
+     * .po generator singleton
+     *
+     * @return PoGenerator
+     */
+    private static function generator()
+    {
+        if (is_null(self::$generator)) {
+            self::$generator = new \Gettext\Generators\Po();
+        }
+        return self::$generator;
+    }
+
+    /**
+     * Phpdoc extractor singleton
+     *
+     * @return PhpdocExtractor
+     */
+    private function docExtractor()
+    {
+        if (is_null(self::$docExtractor)) {
+            $e = self::$docExtractor = new PhpdocExtractor();
+            $e::$ignoreDocPatterns = $this->ignoreDocPatterns;
+        }
+        return self::$docExtractor;
+    }
+
+    /**
+     * .po extractor singleton
+     *
+     * @return PhpdocExtractor
+     */
+    private function poExtractor()
+    {
+        if (is_null(self::$poExtractor)) {
+            self::$poExtractor = new PoExtractor();
+        }
+        return self::$poExtractor;
+    }
+
+    /**
+     * Open source code, extracts docs for template rewrite, then finds possible translations.
      *
      * @param $path
      *
@@ -74,56 +131,48 @@ class TranslatorPlugin
     public function parseDocsFromFile($path)
     {
         $fileContents = file_get_contents($path);
+        $namespace = $this->detectSourceNamespace($fileContents);
 
-        $allTokens = token_get_all($fileContents);
+        //todo! respect current version
+        $translationsPath = $this->resolveVersionedTranslationsPath() . '/' . str_replace('\\', '/', $namespace);
+        $this->filesys->mkdir($translationsPath, 0777);
 
-        $lines = self::toLines($fileContents);
+        // search for existing translations
+        $basename = String::sliceTo(basename($path), '.php');
+        $templateFileName = $translationsPath . '/' . $basename . '.pot';
 
-        $namespace = $this->detectSourceNamespace($allTokens, $lines);
+        $docExtractor = $this->docExtractor();
+        $entriesTemplate = $docExtractor::extract($path);
 
-        $translationsPath = $this->translationsPath . '/' . str_replace('\\', '/', $namespace);
-        if (!is_dir($translationsPath)) {
-            @mkdir($translationsPath, 0777, true);
-        }
+        $translationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.po';
+        $poExtractor = $this->poExtractor();
 
-        $generator = new \Gettext\Generators\Po();
-
-        $poFileName = $translationsPath . '/' . $this->language . '.po';
-        $poEntries = $this->setupPoEntries($poFileName);
-
-        $phpDocs = [];
-        foreach ($allTokens as $tok) {
-            //todo ignore @inheritdoc & all «@marker»-only comments
-            if ($tok[0] == T_DOC_COMMENT) {
-                $phpDocs[$tok[2]] = $tok[1];
-            }
+        try {
+            $entriesTranslated = $poExtractor->extract($translationsFileName);
+        } catch (\InvalidArgumentException $e) {
+            // if there was no template — create new & add default translations
+            $entriesTranslated = new Entries();
+            self::generator()
+                ->generateFile($entriesTranslated, $translationsFileName);
         }
 
         $replaces = [];
-        $context = String::sliceTo(basename($path), '.php');
-
-        foreach ($phpDocs as $lineNum => $phpDoc) {
+        foreach ($docExtractor::getPhpDocs() as $phpDoc) {
             /** @var $translation Translation */
-            $translation = $poEntries->find($context, $phpDoc);
+            $translation = $entriesTranslated->find(null, $phpDoc);
             if ($translation) {
                 $replaces[$phpDoc] = $translation->getTranslation();
-            } else {
-                $translation = $poEntries->insert($context, $phpDoc);
-                $translation->setTranslation($phpDoc);
-                $i = 2;
-                do {
-                    $commentLine = trim($lines[$lineNum + $i], ' {');
-                    $i++;
-                } while (substr($commentLine, 0, 1) == '*');
-                $translation->addComment($commentLine);
             }
         }
 
         //todo diff with rest of outdated (nonexistent anymore) entries
-        $generated = $generator->generateFile($poEntries, $poFileName);
+        // save new & remove outdated entries
+        $generated = self::generator()
+            ->generateFile($entriesTemplate, $templateFileName);
         if (!$generated) {
-            throw new \RuntimeException("Generation of $poFileName failed");
+            throw new \RuntimeException("Generation of $templateFileName failed");
         }
+
         return strtr($fileContents, $replaces);
     }
 
@@ -134,7 +183,11 @@ class TranslatorPlugin
      */
     private function defaultTranslationsPath(Sami $container)
     {
-        return getcwd() . '/../translations/';
+        $defaultPath = getcwd() . '/../translations/';
+        if (isset($container['version'])) {
+            $defaultPath .= '%version%/';
+        }
+        return $defaultPath;
     }
 
     /**
@@ -148,49 +201,19 @@ class TranslatorPlugin
     }
 
     /**
-     * @param $allTokens
-     * @param $lines
+     * @param string $src
      *
-     * @return mixed
+     * @throws ParseException
+     * @return string
      */
-    private function detectSourceNamespace($allTokens, $lines)
+    private function detectSourceNamespace($src)
     {
-        $nsLine = Arrays::from($allTokens)
-                ->filter(
-                    function ($elem) {
-                        return $elem[0] == T_NAMESPACE;
-                    }
-                )
-                ->first()
-                ->obtain()[2] - 1;
-
-        $namespaceDeclaration = $lines[$nsLine];
-        preg_match('/namespace\s+(?P<ns>[a-z\_]+)/i', $namespaceDeclaration, $matches);
-
-        return $matches['ns'];
-    }
-
-    /**
-     * @param $poFileName
-     *
-     * @internal param $extractor
-     * @return Entries
-     */
-    private function setupPoEntries($poFileName)
-    {
-        $extractor = new Po();
-        try {
-            $poEntries = $extractor->extract($poFileName);
-
-            if ($poEntries === false) {
-                throw new \Exception;
-            }
-
-        } catch (\Exception $e) {
-            $poEntries = new Entries();
+        //todo enforce checking, <?php at beginning, no commented namespace line
+        preg_match('/namespace\s+(?P<ns>[a-z\x5c_]+)\s*;\s*\r?\n/i', $src, $matches);
+        if (!isset($matches['ns'])) {
+            throw new ParseException("No namespace detected in: \n$src", ParseException::NAMESPACE_NOT_FOUND);
         }
-
-        return $poEntries;
+        return $matches['ns'];
     }
 
     /**
@@ -201,5 +224,27 @@ class TranslatorPlugin
     protected static function toLines($fileContents)
     {
         return preg_split("/((\r?\n)|(\r\n?))/", $fileContents);
+    }
+
+    /**
+     * @param $path
+     *
+     * @return string
+     */
+    private function parseTranslationsPath($path)
+    {
+        return str_replace('%build%', $this->commonBuildDir, $path);
+    }
+
+    /**
+     * @return string
+     */
+    public function resolveVersionedTranslationsPath()
+    {
+        /** @var Project $project */
+        $project = $this->container['project'];
+
+        $v = is_null($version = $project->getVersion()) ? $this->container['version'] : $version->getName();
+        return str_replace('%version%', $v, $this->translationsPath);
     }
 }
