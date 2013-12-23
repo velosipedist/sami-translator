@@ -9,6 +9,7 @@
 namespace umi\sami\translator;
 
 use Gettext\Entries;
+use Gettext\Extractors\Mo;
 use Gettext\Extractors\Po as PoExtractor;
 use Gettext\Generators\Po as PoGenerator;
 use Gettext\Translation;
@@ -145,10 +146,13 @@ class TranslatorPlugin
         $entriesTemplate = $docExtractor::extract($path);
 
         $translationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.po';
+        $compiledTranslationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.mo';
         $poExtractor = $this->poExtractor();
+        $moExtractor = new Mo();
 
         try {
-            $entriesTranslated = $poExtractor->extract($translationsFileName);
+            $entriesTranslated = $moExtractor->extract($compiledTranslationsFileName);
+//            $entriesTranslated = $poExtractor->extract($translationsFileName);
         } catch (\InvalidArgumentException $e) {
             // if there was no template — create new & add default translations
             $entriesTranslated = new Entries();
@@ -209,7 +213,7 @@ class TranslatorPlugin
     private function detectSourceNamespace($src)
     {
         //todo enforce checking, <?php at beginning, no commented namespace line
-        preg_match('/namespace\s+(?P<ns>[a-z\x5c_]+)\s*;\s*\r?\n/i', $src, $matches);
+        preg_match('/namespace\s+(?P<ns>[0-9a-z\x5c_]+)\s*;\s*\r?\n/i', $src, $matches);
         if (!isset($matches['ns'])) {
             throw new ParseException("No namespace detected in: \n$src", ParseException::NAMESPACE_NOT_FOUND);
         }

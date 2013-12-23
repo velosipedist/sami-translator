@@ -59,7 +59,7 @@ class PhpdocExtractor extends Extractor
                     $commentLine = trim($lines[$lineNum + $i], ' {');
                     $i++;
                 } while (preg_match('/^\s*\*/',$commentLine));
-                $translation->addComment($commentLine);
+                $translation->addComment(trim($commentLine));
             }
         }
         return $entries;
