@@ -39,6 +39,7 @@ class TranslatorPlugin
     protected $container;
     protected $ignoreDocPatterns = [];
     protected $commonBuildDir;
+    protected $useContextComments = true;
 
     /**
      * @var string $translationsPath
@@ -79,6 +80,9 @@ class TranslatorPlugin
 
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
+        if($options['useContextComments']){
+            $this->useContextComments = (bool) $options['useContextComments'];
+        }
     }
 
     /**
@@ -104,6 +108,7 @@ class TranslatorPlugin
         if (is_null(self::$docExtractor)) {
             $e = self::$docExtractor = new PhpdocExtractor();
             $e::$ignoreDocPatterns = $this->ignoreDocPatterns;
+            $e::$useCommentedCodeAsEntriesComments = $this->useContextComments;
         }
         return self::$docExtractor;
     }
@@ -121,7 +126,6 @@ class TranslatorPlugin
         $fileContents = file_get_contents($path);
         $namespace = $this->detectSourceNamespace($fileContents);
 
-        //todo! respect current version
         $translationsPath = $this->resolveVersionedTranslationsPath() . '/' . str_replace('\\', '/', $namespace);
         $this->filesys->mkdir($translationsPath, 0777);
 
