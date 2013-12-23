@@ -10,7 +10,6 @@ Basic usage is to prepare Sami config php file...
 // include all necessary dependencies
 require_once __DIR__ . '/vendor/autoload.php';
 
-
 use Sami\Sami;
 use Symfony\Component\Finder\Finder;
 use umi\sami\translator\TranslatorPlugin;
@@ -30,6 +29,7 @@ $options = [
     // where to look your php source code
     // specify version placeholder for separate HTML output
     'build_dir' => getcwd() . '/docs/build/%version%',
+    // to faster cache deletion ;)
     'cache_dir' => getcwd() . '/docs/cache/%version%',
     // this is required option
     'default_opened_level' => 2,
