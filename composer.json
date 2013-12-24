@@ -1,14 +1,16 @@
 {
     "name": "umi/sami-translator",
     "require": {
-        "sami/sami": "1.3.*",
         "gettext/gettext": "1.0",
         "anahkiasen/underscore-php": "dev-master"
+    },
+    "require-dev": {
+        "sami/sami": "1.3.*"
     },
     "license": "MIT",
     "autoload": {
         "psr-0": {
-            "velosipedist": "./src/"
+            "velosipedist": "src/"
         }
     }
 }
