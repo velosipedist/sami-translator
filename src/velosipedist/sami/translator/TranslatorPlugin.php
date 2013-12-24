@@ -80,7 +80,7 @@ class TranslatorPlugin
 
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
-        if($options['useContextComments']){
+        if(isset($options['useContextComments'])){
             $this->useContextComments = (bool) $options['useContextComments'];
         }
     }
