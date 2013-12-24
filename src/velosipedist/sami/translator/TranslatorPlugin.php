@@ -16,6 +16,7 @@ use Gettext\Translation;
 use Sami\Project;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Finder\Finder;
 use Underscore\Types\String;
 use velosipedist\sami\translator\extractors\PhpdocExtractor;
 
@@ -75,12 +76,17 @@ class TranslatorPlugin
         $container['cache_dir'] .= '/' . $language;
 
         // substitute any iterator passed to Sami
-        $iterator = new MultilangFilesIterator($container['files']);
+        $finder = $container['files'];
+        if (is_string($finder)) {
+            $finder = Finder::create()
+                ->in($finder);
+        }
+        $iterator = new MultilangFilesIterator($finder);
         $container['files'] = $iterator;
 
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
-        if(isset($options['useContextComments'])){
+        if (isset($options['useContextComments'])) {
             $this->useContextComments = (bool) $options['useContextComments'];
         }
     }

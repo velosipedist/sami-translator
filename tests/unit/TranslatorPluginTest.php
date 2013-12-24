@@ -5,6 +5,7 @@ use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
+use velosipedist\sami\translator\MultilangFilesIterator;
 use velosipedist\sami\translator\ParseException;
 use velosipedist\sami\translator\TranslatorPlugin;
 
@@ -36,6 +37,13 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         );
 
         return $p;
+    }
+
+    public function testIteratorAsString()
+    {
+        $sami = new Sami(__DIR__ . '/../mock/src');
+        $plugin = new TranslatorPlugin('ru', $sami);
+        $this->assertInstanceOf('velosipedist\sami\translator\MultilangFilesIterator',$sami['files']);
     }
 
     public function testRunSuccessfully()
