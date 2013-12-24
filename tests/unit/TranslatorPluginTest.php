@@ -43,7 +43,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
     {
         $sami = new Sami(__DIR__ . '/../mock/src');
         $plugin = new TranslatorPlugin('ru', $sami);
-        $this->assertInstanceOf('velosipedist\sami\translator\MultilangFilesIterator',$sami['files']);
+        $this->assertInstanceOf('velosipedist\sami\translator\MultilangFilesIterator', $sami['files']);
     }
 
     public function testRunSuccessfully()
