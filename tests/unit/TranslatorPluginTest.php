@@ -5,7 +5,7 @@ use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
-use velosipedist\sami\translator\MultilangFilesIterator;
+use velosipedist\sami\translator\extractors\PhpdocExtractor;
 use velosipedist\sami\translator\ParseException;
 use velosipedist\sami\translator\TranslatorPlugin;
 
@@ -20,6 +20,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $fs->remove(__DIR__ . '/../mock/translations');
         $fs->remove(__DIR__ . '/../mock/build');
         $fs->remove(__DIR__ . '/../mock/cache');
+        $fs->remove(__DIR__ . '/../mock/runtime');
     }
 
     /**
@@ -163,6 +164,19 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
                 $this->fail("Namespace must be found in $file");
             }
         }
+    }
+
+    public function testDiffEntries()
+    {
+        $extractor = new PhpdocExtractor();
+        $classesDir = __DIR__ . '/../mock/src/diffs/';
+        $tempClassFile = __DIR__ . '/../runtime/Diffs.php';
+        $sami = $this->setupSami(dirname($tempClassFile));
+        $entriesInit = $extractor->extract($classesDir . 'Init.php');
+
+        // load default class data
+        file_put_contents($tempClassFile, file_get_contents($classesDir . 'Init.php'));
+        $translator = new TranslatorPlugin('en', $sami);
     }
 
     /**
