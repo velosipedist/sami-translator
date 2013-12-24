@@ -2,7 +2,7 @@
 namespace tests\unit;
 
 use Gettext\Entries;
-use umi\sami\translator\extractors\PhpdocExtractor;
+use velosipedist\sami\translator\extractors\PhpdocExtractor;
 
 class ExtractorTest extends \PHPUnit_Framework_TestCase
 {

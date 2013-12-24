@@ -1,5 +1,5 @@
 <?php
-namespace umi\sami\translator;
+namespace velosipedist\sami\translator;
 
 /**
  * Iterates the same sources as inner iterator,

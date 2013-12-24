@@ -1,5 +1,5 @@
 <?php
-namespace umi\sami\translator;
+namespace velosipedist\sami\translator;
 
 /**
  * Class TranslateStreamWrapper

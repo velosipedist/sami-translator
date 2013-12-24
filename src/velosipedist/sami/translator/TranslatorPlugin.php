@@ -6,7 +6,7 @@
  * @copyright Copyright (c) 2007-2013 Umisoft ltd. (http://umisoft.ru/)
  * @license   http://umi-framework.ru/license/bsd-3 BSD-3 License
  */
-namespace umi\sami\translator;
+namespace velosipedist\sami\translator;
 
 use Gettext\Entries;
 use Gettext\Extractors\Mo;
@@ -16,8 +16,8 @@ use Gettext\Translation;
 use Sami\Project;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
-use umi\sami\translator\extractors\PhpdocExtractor;
 use Underscore\Types\String;
+use velosipedist\sami\translator\extractors\PhpdocExtractor;
 
 /**
  * Injects ability to output localized versions of every parsed lib version

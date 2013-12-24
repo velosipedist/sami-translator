@@ -3,7 +3,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 use Sami\Sami;
 use Symfony\Component\Finder\Finder;
-use umi\sami\translator\TranslatorPlugin;
+use velosipedist\sami\translator\TranslatorPlugin;
 
 $options = [
     'build_dir' => getcwd() . '/docs/build/%version%',

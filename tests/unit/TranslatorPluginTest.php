@@ -5,8 +5,8 @@ use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
-use umi\sami\translator\ParseException;
-use umi\sami\translator\TranslatorPlugin;
+use velosipedist\sami\translator\ParseException;
+use velosipedist\sami\translator\TranslatorPlugin;
 
 /**
  * Class TranslatorPluginTest
