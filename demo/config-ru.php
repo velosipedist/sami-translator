@@ -24,7 +24,7 @@ $iterator = Finder::create()
 $sami = new Sami($iterator, $options);
 
 $lang = 'ru'; //todo pass from args
-
+//todo make use of Pimple::extend()
 $sami[TranslatorPlugin::ID] = new TranslatorPlugin($lang, $sami, [
     'ignoreDocPatterns' => [
         '/@inheritdoc/',
