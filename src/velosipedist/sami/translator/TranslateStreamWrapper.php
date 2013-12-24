@@ -64,7 +64,7 @@ class TranslateStreamWrapper
     {
         $this->currentFile = $path;
         $this->position = 0;
-        $this->contents = self::$translator->parseDocsFromFile($this->extractRealFileName($this->currentFile));
+        $this->contents = self::$translator->translateFile($this->extractRealFileName($this->currentFile));
         $this->length = $this->bytes($this->contents, 'utf-8');
 
         return true;

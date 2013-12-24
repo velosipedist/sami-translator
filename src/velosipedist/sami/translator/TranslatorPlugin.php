@@ -37,7 +37,11 @@ class TranslatorPlugin
      */
     protected static $poExtractor;
     protected static $generator;
+    protected static $moExtractor;
     protected $container;
+    /**
+     * @var array $ignoreDocPatterns
+     */
     protected $ignoreDocPatterns = [];
     protected $commonBuildDir;
     protected $useContextComments = true;
@@ -70,7 +74,6 @@ class TranslatorPlugin
         $this->ignoreDocPatterns = isset($options['ignoreDocPatterns'])
             ? $options['ignoreDocPatterns']
             : [];
-        //        $this->translationsPath = $this->normalizePath($this->translationsPath);
 
         $container['build_dir'] .= '/' . $language;
         $container['cache_dir'] .= '/' . $language;
@@ -89,6 +92,17 @@ class TranslatorPlugin
         if (isset($options['useContextComments'])) {
             $this->useContextComments = (bool) $options['useContextComments'];
         }
+    }
+
+    /**
+     * @return Mo
+     */
+    protected static function moExtractor()
+    {
+        if (is_null(self::$moExtractor)) {
+            self::$moExtractor = new Mo();
+        }
+        return self::$moExtractor;
     }
 
     /**
@@ -127,7 +141,7 @@ class TranslatorPlugin
      * @throws \RuntimeException
      * @return string
      */
-    public function parseDocsFromFile($path)
+    public function translateFile($path)
     {
         $fileContents = file_get_contents($path);
         $namespace = $this->detectSourceNamespace($fileContents);
@@ -140,11 +154,11 @@ class TranslatorPlugin
         $templateFileName = $translationsPath . '/' . $basename . '.pot';
 
         $docExtractor = $this->docExtractor();
-        $entriesTemplate = $docExtractor::extract($path);
+        $entriesActual = $docExtractor::extract($path);
 
         $translationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.po';
         $compiledTranslationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.mo';
-        $moExtractor = new Mo();
+        $moExtractor = self::moExtractor();
 
         try {
             $entriesTranslated = $moExtractor->extract($compiledTranslationsFileName);
@@ -167,7 +181,7 @@ class TranslatorPlugin
         //todo diff with rest of outdated (nonexistent anymore) entries
         // save new & remove outdated entries
         $generated = self::generator()
-            ->generateFile($entriesTemplate, $templateFileName);
+            ->generateFile($entriesActual, $templateFileName);
         if (!$generated) {
             throw new \RuntimeException("Generation of $templateFileName failed");
         }
