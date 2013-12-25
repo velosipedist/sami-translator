@@ -14,6 +14,7 @@ use Gettext\Extractors\Po as PoExtractor;
 use Gettext\Generators\Po as PoGenerator;
 use Gettext\Translation;
 use Sami\Project;
+use Sami\Reflection\ClassReflection;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
@@ -27,6 +28,8 @@ class TranslatorPlugin
 {
     const ID = 'umi\sami\translator\TranslatorPlugin';
     const PROTOCOL = 'doclocal';
+    const USE_PHPDOCS_AS_KEYS = 1;
+    const USE_SIGNATURES_AS_KEYS = 2;
 
     /**
      * @var PhpdocExtractor $extractor
@@ -43,13 +46,27 @@ class TranslatorPlugin
      * @var array $ignoreDocPatterns
      */
     protected $ignoreDocPatterns = [];
+    /**
+     * @var $commonBuildDir
+     */
     protected $commonBuildDir;
+    /**
+     * @var bool $useContextComments
+     */
     protected $useContextComments = true;
+    /**
+     * @var bool $translateOnly If false, plugin will also create/regenerate .pot files
+     */
+    protected $translateOnly = false;
+    /**
+     * @var int $messageKeysStrategy
+     */
+    protected $messageKeysStrategy;
 
     /**
      * @var string $translationsPath
      */
-    private $translationsPath;
+    private static $translationsPath;
     /**
      * @var string $language
      */
@@ -64,10 +81,13 @@ class TranslatorPlugin
     {
         $this->container = $container;
         $this->language = $language;
-        $this->filesys = new Filesystem();
         $this->commonBuildDir = $container['build_dir'];
+        $this->container['build_dir'] .= '/' . $language;
+        $this->container['cache_dir'] .= '/' . $language;
 
-        $this->translationsPath = isset($options['translationsPath'])
+        $this->filesys = new Filesystem();
+
+        self::$translationsPath = isset($options['translationsPath'])
             ? $this->parseTranslationsPath($options['translationsPath'])
             : $this->defaultTranslationsPath($container);
 
@@ -75,22 +95,22 @@ class TranslatorPlugin
             ? $options['ignoreDocPatterns']
             : [];
 
-        $container['build_dir'] .= '/' . $language;
-        $container['cache_dir'] .= '/' . $language;
+        $this->messageKeysStrategy = isset($options['messageKeysStrategy'])
+            ? $options['messageKeysStrategy']
+            : self::USE_PHPDOCS_AS_KEYS;
 
-        // substitute any iterator passed to Sami
-        $finder = $container['files'];
-        if (is_string($finder)) {
-            $finder = Finder::create()
-                ->in($finder);
+        if (isset($options['translateOnly'])) {
+            $this->translateOnly = $options['translateOnly'];
         }
-        $iterator = new MultilangFilesIterator($finder);
-        $container['files'] = $iterator;
 
-        // setup stream wrapper
-        TranslateStreamWrapper::setupTranslatorPlugin($this);
-        if (isset($options['useContextComments'])) {
-            $this->useContextComments = (bool) $options['useContextComments'];
+        switch ($this->messageKeysStrategy) {
+            // if we use raw phpdocs as keys, we need to substitute iterator & intercept files input
+            case self::USE_PHPDOCS_AS_KEYS:
+                $this->usePhpdocsStrategy($options);
+                break;
+            case self::USE_SIGNATURES_AS_KEYS:
+                $this->useSignaturesStrategy($options);
+                break;
         }
     }
 
@@ -126,9 +146,9 @@ class TranslatorPlugin
     private function docExtractor()
     {
         if (is_null(self::$docExtractor)) {
-            $e = self::$docExtractor = new PhpdocExtractor();
-            $e::$ignoreDocPatterns = $this->ignoreDocPatterns;
-            $e::$useCommentedCodeAsEntriesComments = $this->useContextComments;
+            $extractor = self::$docExtractor = new PhpdocExtractor();
+            $extractor::$ignoreDocPatterns = $this->ignoreDocPatterns;
+            $extractor::$useCommentedCodeAsEntriesComments = $this->useContextComments;
         }
         return self::$docExtractor;
     }
@@ -145,32 +165,18 @@ class TranslatorPlugin
     {
         $fileContents = file_get_contents($path);
         $namespace = $this->detectSourceNamespace($fileContents);
-
-        $translationsPath = $this->resolveVersionedTranslationsPath() . '/' . str_replace('\\', '/', $namespace);
-        $this->filesys->mkdir($translationsPath, 0777);
-
-        // search for existing translations
-        $basename = String::sliceTo(basename($path), '.php');
-        $templateFileName = $translationsPath . '/' . $basename . '.pot';
-
-        $docExtractor = $this->docExtractor();
-        $entriesActual = $docExtractor::extract($path);
-
-        $translationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.po';
-        $compiledTranslationsFileName = $translationsPath . '/' . $basename . '.' . $this->language . '.mo';
-        $moExtractor = self::moExtractor();
-
-        try {
-            $entriesTranslated = $moExtractor->extract($compiledTranslationsFileName);
-        } catch (\InvalidArgumentException $e) {
-            // if there was no template — create new & add default translations
-            $entriesTranslated = new Entries();
-            self::generator()
-                ->generateFile($entriesTranslated, $translationsFileName);
-        }
+        $className = String::sliceTo(basename($path), '.php');
+        $phpdocExtractor = $this->docExtractor();
+        $entriesTranslated = $this->localizeEntries(
+            $namespace,
+            $className,
+            $phpdocExtractor
+                ->extract($path)
+        );
 
         $replaces = [];
-        foreach ($docExtractor::getPhpDocs() as $phpDoc) {
+
+        foreach ($phpdocExtractor::getPhpDocs() as $phpDoc) {
             /** @var $translation Translation */
             $translation = $entriesTranslated->find(null, $phpDoc);
             if ($translation) {
@@ -178,35 +184,80 @@ class TranslatorPlugin
             }
         }
 
-        //todo diff with rest of outdated (nonexistent anymore) entries
-        // save new & remove outdated entries
-        $generated = self::generator()
-            ->generateFile($entriesActual, $templateFileName);
-        if (!$generated) {
-            throw new \RuntimeException("Generation of $templateFileName failed");
-        }
-
         return strtr($fileContents, $replaces);
     }
 
     /**
-     * @param Sami $container
+     * Process pairs of message-Reflection, replacing with current language strings
+     *
+     * @param ClassReflection $class
+     * @param array $messages
+     *
+     * @return array
+     */
+    public function translateClassReflection(ClassReflection $class, $messages)
+    {
+        $entries = new Entries();
+        foreach ($messages as $msgid => $message) {
+            $tr = $entries->insert(null, $msgid);
+            $tr->setTranslation($message[0]);
+        }
+        $entries = $this->localizeEntries($class->getNamespace(), $class->getShortName(), $entries);
+        foreach ($messages as $msgid => $message) {
+            if ($translation = $entries->find(null, $msgid)) {
+                $message[1]->setDocComment($translation->getTranslation());
+            }
+        }
+        return $messages;
+    }
+
+    /**
+     * @param $namespace
+     * @param $className
      *
      * @return string
      */
-    private function defaultTranslationsPath(Sami $container)
+    private function findMoFile($namespace, $className)
     {
-        $defaultPath = getcwd() . '/../translations/';
-        if (isset($container['version'])) {
-            $defaultPath .= '%version%/';
-        }
-        return $defaultPath;
+        return $this->resolveVersionedRelativePath($namespace, $className) . '.' . $this->language . '.mo';
+    }
+
+    /**
+     * @param $namespace
+     * @param $className
+     *
+     * @return string
+     */
+    private function findPoFile($namespace, $className)
+    {
+        return $this->resolveVersionedRelativePath($namespace, $className) . '.' . $this->language . '.po';
+    }
+
+    /**
+     * @param $namespace
+     * @param $className
+     *
+     * @return string
+     */
+    private function findPotFile($namespace, $className)
+    {
+        return $this->resolveVersionedRelativePath($namespace, $className) . '.pot';
+    }
+
+    /**
+     * Used when no translationsPath specified
+     *
+     * @return string
+     */
+    private function defaultTranslationsPath()
+    {
+        return getcwd() . '/../translations/';
     }
 
     /**
      * @param $path
      *
-     * @return mixed
+     * @return string
      */
     public function normalizePath($path)
     {
@@ -250,14 +301,121 @@ class TranslatorPlugin
     }
 
     /**
+     * @param $namespace
+     * @param $className
+     *
      * @return string
      */
-    public function resolveVersionedTranslationsPath()
+    public function resolveVersionedRelativePath($namespace, $className = null)
     {
         /** @var Project $project */
         $project = $this->container['project'];
 
         $v = is_null($version = $project->getVersion()) ? $this->container['version'] : $version->getName();
-        return str_replace('%version%', $v, $this->translationsPath);
+        $path = str_replace('%version%', $v, self::$translationsPath) . '/' . str_replace('\\', '/', $namespace);
+        if (is_string($className)) {
+            $path .= '/' . $className;
+        }
+        return $path;
+    }
+
+    /**
+     * Set plugin to "key=phpdoc" mode
+     *
+     * @param $options
+     */
+    private function usePhpdocsStrategy($options)
+    {
+        // substitute any iterator passed to Sami
+        $finder = $this->container['files'];
+        if (is_string($finder)) {
+            $finder = Finder::create()
+                ->in($finder);
+        }
+        $iterator = new MultilangFilesIterator($finder);
+        $this->container['files'] = $iterator;
+
+        // setup stream wrapper
+        TranslateStreamWrapper::setupTranslatorPlugin($this);
+        if (isset($options['useContextComments'])) {
+            $this->useContextComments = (bool) $options['useContextComments'];
+        }
+    }
+
+    private function useSignaturesStrategy($options)
+    {
+        $this->container['traverser']->addVisitor(new ClassVisitor($this->container));
+    }
+
+    /**
+     * Turn passed entries translations into current language
+     *
+     * @param $namespace
+     * @param $className
+     * @param Entries $entries
+     *
+     * @return Entries
+     */
+    private function localizeEntries($namespace, $className, Entries $entries)
+    {
+        $moFileName = $this->findMoFile($namespace, $className);
+        try {
+            $translatedEntries = self::moExtractor()
+                ->extract($moFileName);
+        } catch (\InvalidArgumentException $e) {
+            // if no translations, leave entries as-is
+            $translatedEntries = $entries;
+        }
+
+        if ($translatedEntries !== $entries) {
+            foreach ($entries as $entry) {
+                if ($translation = $translatedEntries->find(null, $entry)) {
+                    $entry->setTranslation($translation->getTranslation());
+                }
+            }
+        }
+
+        if (!$this->translateOnly) {
+            $this->updateTranslationFiles($namespace, $className, $entries);
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Create or update .pot files filled with actual keys
+     *
+     * @param $namespace
+     * @param $className
+     * @param Entries $entries
+     *
+     * @throws \RuntimeException
+     */
+    private function updateTranslationFiles($namespace, $className, Entries $entries)
+    {
+        $templateFileName = $this->findPotFile($namespace, $className);
+        try {
+            $extractor = new PoExtractor();
+            $previousEntries = $extractor->extract($templateFileName);
+        } catch (\InvalidArgumentException $e) {
+            $previousEntries = $entries;
+            $this->filesys->mkdir(dirname($templateFileName));
+            self::generator()
+                ->generateFile($entries, $this->findPoFile($namespace, $className));
+        }
+        if ($previousEntries !== $entries) {
+            foreach ($entries as $entry) {
+                if (!$translation = $previousEntries->find(null, $entry)) {
+                    $newEntry = $entries->insert(null, $entry->getOriginal());
+                    $newEntry->setTranslation($entry->getTranslation());
+                }
+            }
+        }
+
+        $result = self::generator()
+            ->generateFile($entries, $templateFileName);
+        if (!$result) {
+            throw new \RuntimeException("Failed to generate $templateFileName");
+        }
     }
 }
