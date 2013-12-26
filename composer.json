@@ -1,7 +1,7 @@
 {
     "name": "umi/sami-translator",
     "require": {
-        "gettext/gettext": "~1.*",
+        "gettext/gettext": "~1.0",
         "anahkiasen/underscore-php": "dev-master"
     },
     "require-dev": {
