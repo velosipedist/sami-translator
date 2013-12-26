@@ -8,16 +8,44 @@
  */
 namespace mock;
 
-use Serializable;
-
 /**
  * Class CompleteDocumentedClass
  *
  * @property string $foo This is foo
- * @method  string bar This is bar
+ * @method  string $bar This is bar
  */
-class CompleteDocumentedClass
+class CompleteDocumentedClass implements ImplementMe
 {
+    /**
+     * Means exactly nothing
+     */
+    const FOO = 'FOO';
+    /**
+     * @var mixed $publicMember publicMemberDoc
+     */
+    public $publicMember;
+    /**
+     * @var mixed $protectedMember protectedMemberDoc
+     */
+    protected $protectedMember;
+    /**
+     * @var mixed $privateMember privateMemberDoc
+     */
+    private $privateMember;
+
+    /**
+     * @var mixed $publicStaticMember publicStaticMemberDoc
+     */
+    public static $publicStaticMember;
+    /**
+     * @var mixed $protectedStaticMember protectedStaticMemberDoc
+     */
+    protected static $protectedStaticMember;
+    /**
+     * @var mixed $privateStaticMember privateStaticMemberDoc
+     */
+    private static $privateStaticMember;
+
     /**
      * This is publicFoo
      */
@@ -96,9 +124,11 @@ class CompleteDocumentedClass
      * </code>
      *
      * Save this text
+     *
      * @return boolean
      */
-    protected function methodWithCodeInComment(){
+    protected function methodWithCodeInComment()
+    {
         return true;
     }
 }

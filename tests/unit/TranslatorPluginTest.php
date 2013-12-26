@@ -1,6 +1,7 @@
 <?php
 namespace tests\unit;
 
+use Sami\Parser\Filter\TrueFilter;
 use Sami\Project;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
@@ -16,9 +17,12 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 {
     public function setUp()
     {
-        $fs = new Filesystem();
-        $fs->remove(__DIR__ . '/../mock/translations');
-        $fs->remove(__DIR__ . '/../runtime');
+        try {
+            $fs = new Filesystem();
+            $fs->remove(__DIR__ . '/../mock/translations');
+            $fs->remove(__DIR__ . '/../runtime');
+        } catch (\Exception $e) {
+        }
     }
 
     /**
@@ -39,6 +43,11 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
             ->exclude('docs')
             ->name('*.php');
         $sami = new Sami($internalFinder);
+        $sami['filter'] = $sami->share(
+            function () {
+                return new TrueFilter();
+            }
+        );
         $sami['build_dir'] = __DIR__ . '/../runtime/build/';
         $sami['cache_dir'] = __DIR__ . '/../runtime/cache/';
         $sami['default_opened_level'] = 1;
@@ -126,7 +135,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
         $translator = new TranslatorPlugin('ru', $sami, [
             'translationsPath' => '%build%/../translations/placeholded',
-            'translateOnly' => false,
+            'translateOnly'    => false,
         ]);
         $i = $sami['files'];
         foreach ($i as $file) {
@@ -157,7 +166,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
         $translator = new TranslatorPlugin('ru', $sami, [
             'translationsPath' => '%build%/../../translations/version-placeholded/%version%',
-            'translateOnly' => false,
+            'translateOnly'    => false,
         ]);
         $i = $sami['files'];
         foreach ($i as $file) {
@@ -210,18 +219,37 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
     public function testSignaturesStrategy()
     {
         $sami = $this->setupSami(__DIR__ . '/../mock/src');
+
         //todo move to singleton ?
         $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
             'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
-            'translateOnly' => false,
+            'translateOnly'       => false,
         ]);
         /** @var $project Project */
         $project = $sami['project'];
+
         $project->update();
         $expectedDir = __DIR__ . '/../mock/translations/mock/';
         $this->assertTrue(is_dir($expectedDir));
         $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.pot');
         $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.ru.po');
+    }
+
+    public function testInheritdocs()
+    {
+        $this->markTestIncomplete('Resolve inheritdocs');
+        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+
+        $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
+            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
+            'translateOnly'       => false,
+        ]);
+        /** @var $project Project */
+        $project = $sami['project'];
+
+        $project->update();
+        $pot = file_get_contents(__DIR__ . '/../mock/translations/mock/' . 'CompleteDocumentedClass.pot');
+        $this->assertNotRegExp('/@inheritdoc/m', $pot, 'Inheritdocs must be resolved');
     }
 
 }

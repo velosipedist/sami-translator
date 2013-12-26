@@ -3,6 +3,7 @@ namespace velosipedist\sami\translator;
 
 use Sami\Parser\ClassVisitorInterface;
 use Sami\Reflection\ClassReflection;
+use Sami\Reflection\ConstantReflection;
 use Sami\Reflection\MethodReflection;
 use Sami\Reflection\ParameterReflection;
 use Sami\Reflection\PropertyReflection;
@@ -49,6 +50,9 @@ class ClassVisitor implements ClassVisitorInterface
         $messages = [
             $this->classKey($class) => [$class->getDocComment(), $class],
         ];
+        foreach ($class->getConstants() as $const) {
+            $messages[$this->constKey($const)] = [$const->getDocComment(), $const];
+        }
         foreach ($class->getProperties() as $prop) {
             $messages[$this->propertyKey($prop)] = [$prop->getDocComment(), $prop];
         }
@@ -108,6 +112,11 @@ class ClassVisitor implements ClassVisitorInterface
         return $ret;
     }
 
+    /**
+     * @param MethodReflection $meth
+     *
+     * @return mixed
+     */
     private function methodSignature(MethodReflection $meth)
     {
         return Arrays::from($meth->getParameters())
@@ -128,5 +137,10 @@ class ClassVisitor implements ClassVisitorInterface
     private function classKey(ClassReflection $class)
     {
         return 'class ' . $class->getShortName();
+    }
+
+    private function constKey(ConstantReflection $const)
+    {
+        return 'const ' . $const->getName();
     }
 }

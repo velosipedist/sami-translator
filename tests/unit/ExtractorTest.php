@@ -11,13 +11,13 @@ class ExtractorTest extends \PHPUnit_Framework_TestCase
     {
         $ex = new PhpdocExtractor();
         $entries = new Entries();
-        $ex->parse(__DIR__.'/../mock/src/CompleteDocumentedClass.php', $entries);
+        $ex->parse(__DIR__ . '/../mock/src/CompleteDocumentedClass.php', $entries);
         $allDocs = count($entries->getArrayCopy());
 
         $ex::$ignoreDocPatterns = ['/@inheritdoc/'];
         $entries = new Entries();
-        $ex->parse(__DIR__.'/../mock/src/CompleteDocumentedClass.php', $entries);
+        $ex->parse(__DIR__ . '/../mock/src/CompleteDocumentedClass.php', $entries);
         $entriesArray = $entries->getArrayCopy();
-        $this->assertCount($allDocs-1,$entriesArray);
+        $this->assertCount($allDocs - 1, $entriesArray);
     }
 }
