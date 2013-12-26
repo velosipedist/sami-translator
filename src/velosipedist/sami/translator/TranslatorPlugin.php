@@ -1,5 +1,5 @@
 <?php
-//todo improve performance with static fields
+//todo improve performance with static fields, but now need to move members to non-static
 namespace velosipedist\sami\translator;
 
 use Gettext\Entries;
