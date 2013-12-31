@@ -57,6 +57,12 @@ class ClassVisitor implements ClassVisitorInterface
             $messages[$this->propertyKey($prop)] = [$prop->getDocComment(), $prop];
         }
         foreach ($class->getMethods() as $meth) {
+            if (strpos(strtolower(trim($meth->getDocComment())),'{@inheritdoc}') || !$meth->getDocComment()) {
+                $parentMeth = $class->getParentMethod($meth->getName());
+                if($parentMeth){
+                    $meth->setDocComment($parentMeth->getDocComment());
+                }
+            }
             $methodSignature = $this->methodSignature($meth);
             $methodKey = $this->methodKey($meth, $methodSignature);
             $messages[$methodKey] = [$meth->getDocComment(), $meth];

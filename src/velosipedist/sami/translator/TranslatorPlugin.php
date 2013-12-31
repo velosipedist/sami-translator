@@ -37,17 +37,9 @@ class TranslatorPlugin
     protected static $moExtractor;
     protected $container;
     /**
-     * @var array $ignoreDocPatterns
-     */
-    protected $ignoreDocPatterns = [];
-    /**
      * @var $commonBuildDir
      */
     protected $commonBuildDir;
-    /**
-     * @var bool $useContextComments
-     */
-    protected $useContextComments = true;
     /**
      * @var bool $translateOnly If false, plugin will also create/regenerate .pot files
      */
@@ -85,10 +77,6 @@ class TranslatorPlugin
             ? $this->parseTranslationsPath($options['translationsPath'])
             : $this->defaultTranslationsPath($container);
 
-        $this->ignoreDocPatterns = isset($options['ignoreDocPatterns'])
-            ? $options['ignoreDocPatterns']
-            : [];
-
         $this->messageKeysStrategy = isset($options['messageKeysStrategy'])
             ? $options['messageKeysStrategy']
             : self::USE_PHPDOCS_AS_KEYS;
@@ -96,6 +84,10 @@ class TranslatorPlugin
         if (isset($options['translateOnly'])) {
             $this->translateOnly = $options['translateOnly'];
         }
+
+        self::$generator = new PoGenerator();
+        self::$poExtractor = new PoExtractor();
+        self::$moExtractor = new Mo();
 
         switch ($this->messageKeysStrategy) {
             // if we use raw phpdocs as keys, we need to substitute iterator & intercept files input
@@ -108,44 +100,6 @@ class TranslatorPlugin
         }
     }
 
-    /**
-     * @return Mo
-     */
-    protected static function moExtractor()
-    {
-        if (is_null(self::$moExtractor)) {
-            self::$moExtractor = new Mo();
-        }
-        return self::$moExtractor;
-    }
-
-    /**
-     * .po generator singleton
-     *
-     * @return PoGenerator
-     */
-    private static function generator()
-    {
-        if (is_null(self::$generator)) {
-            self::$generator = new PoGenerator();
-        }
-        return self::$generator;
-    }
-
-    /**
-     * Phpdoc extractor singleton
-     *
-     * @return PhpdocExtractor
-     */
-    private function docExtractor()
-    {
-        if (is_null(self::$docExtractor)) {
-            $extractor = self::$docExtractor = new PhpdocExtractor();
-            $extractor::$ignoreDocPatterns = $this->ignoreDocPatterns;
-            $extractor::$useCommentedCodeAsEntriesComments = $this->useContextComments;
-        }
-        return self::$docExtractor;
-    }
 
     /**
      * Open source code, extracts docs for template rewrite, then finds possible translations.
@@ -160,7 +114,7 @@ class TranslatorPlugin
         $fileContents = file_get_contents($path);
         $namespace = $this->detectSourceNamespace($fileContents);
         $className = String::sliceTo(basename($path), '.php');
-        $phpdocExtractor = $this->docExtractor();
+        $phpdocExtractor = self::$docExtractor;
         $entriesTranslated = $this->localizeEntries(
             $namespace,
             $className,
@@ -303,6 +257,7 @@ class TranslatorPlugin
     public function resolveVersionedRelativePath($namespace, $className = null)
     {
         /** @var Project $project */
+        $filter = $this->container['filter'];
         $project = $this->container['project'];
 
         $v = is_null($version = $project->getVersion()) ? $this->container['version'] : $version->getName();
@@ -329,13 +284,26 @@ class TranslatorPlugin
         $iterator = new MultilangFilesIterator($finder);
         $this->container['files'] = $iterator;
 
+        // setup extractor
+        $ignoreDocPatterns = isset($options['ignoreDocPatterns'])
+            ? $options['ignoreDocPatterns']
+            : [];
+
+        $dExtractor = self::$docExtractor = new PhpdocExtractor();
+        $dExtractor::$ignoreDocPatterns = $ignoreDocPatterns;
+
+        if (isset($options['useContextComments'])) {
+            $useContextComments = (bool) $options['useContextComments'];
+            $dExtractor::$useCommentedCodeAsEntriesComments = $useContextComments;
+        }
+
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
-        if (isset($options['useContextComments'])) {
-            $this->useContextComments = (bool) $options['useContextComments'];
-        }
     }
 
+    /**
+     * @param array $options
+     */
     private function useSignaturesStrategy($options)
     {
         $this->container['traverser']->addVisitor(new ClassVisitor($this->container));
@@ -354,7 +322,7 @@ class TranslatorPlugin
     {
         $moFileName = $this->findMoFile($namespace, $className);
         try {
-            $translatedEntries = self::moExtractor()
+            $translatedEntries = self::$moExtractor
                 ->extract($moFileName);
         } catch (\InvalidArgumentException $e) {
             // if no translations, leave entries as-is
@@ -394,7 +362,7 @@ class TranslatorPlugin
         } catch (\InvalidArgumentException $e) {
             $previousEntries = $entries;
             $this->filesys->mkdir(dirname($templateFileName));
-            self::generator()
+            self::$generator
                 ->generateFile($entries, $this->findPoFile($namespace, $className));
         }
         if ($previousEntries !== $entries) {
@@ -406,7 +374,7 @@ class TranslatorPlugin
             }
         }
 
-        $result = self::generator()
+        $result = self::$generator
             ->generateFile($entries, $templateFileName);
         if (!$result) {
             throw new \RuntimeException("Failed to generate $templateFileName");
