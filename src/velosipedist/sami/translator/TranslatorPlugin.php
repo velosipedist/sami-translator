@@ -331,7 +331,8 @@ class TranslatorPlugin
 
         if ($translatedEntries !== $entries) {
             foreach ($entries as $entry) {
-                if ($translation = $translatedEntries->find(null, $entry)) {
+                /** @var $entry Translation */
+                if ($translation = $translatedEntries->find(null, $entry->getOriginal())) {
                     $entry->setTranslation($translation->getTranslation());
                 }
             }

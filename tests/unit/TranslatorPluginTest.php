@@ -237,7 +237,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
     public function testInheritdocs()
     {
-//        $this->markTestIncomplete('Resolve inheritdocs');
         $sami = $this->setupSami(__DIR__ . '/../mock/src');
 
         $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
