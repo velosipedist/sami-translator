@@ -368,7 +368,8 @@ class TranslatorPlugin
         }
         if ($previousEntries !== $entries) {
             foreach ($entries as $entry) {
-                if (!$translation = $previousEntries->find(null, $entry)) {
+                /** @var $entry Translation */
+                if (!$translation = $previousEntries->find(null, $entry->getOriginal())) {
                     $newEntry = $entries->insert(null, $entry->getOriginal());
                     $newEntry->setTranslation($entry->getTranslation());
                 }
