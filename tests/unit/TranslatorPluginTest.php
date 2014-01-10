@@ -19,7 +19,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
     {
         try {
             $fs = new Filesystem();
-            $fs->remove(__DIR__ . '/../mock/translations');
+            $fs->remove(__DIR__ . '/../fixtures/translations');
             $fs->remove(__DIR__ . '/../runtime');
         } catch (\Exception $e) {
         }
@@ -60,9 +60,10 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
     private function createProcess()
     {
         //todo just find vendor as root
-        $cwd = __DIR__ . '/../mock/src';
-        $sami = realpath($cwd . '/../../../../../bin/sami.php');
-        $config = realpath($cwd . '/../../../demo/config-ru.php');
+        $cwd = __DIR__ . '/../fixtures/src';
+        $vendors = realpath(__DIR__.'/../../vendor');
+        $sami = realpath($vendors. '/bin/sami.php');
+        $config = realpath($cwd . '/../../demo/config-ru.php');
         $p = new Process(
             'php "' . $sami . '" update "' . $config . '"',
             $cwd
@@ -76,7 +77,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      */
     public function testIteratorAsString()
     {
-        $sami = new Sami(__DIR__ . '/../mock/src');
+        $sami = new Sami(__DIR__ . '/../fixtures/src');
         $plugin = new TranslatorPlugin('ru', $sami);
         $this->assertInstanceOf('velosipedist\sami\translator\MultilangFilesIterator', $sami['files']);
     }
@@ -105,7 +106,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      */
     public function testFileIterator()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/src');
 
         // this decorating trick invokes inside TranslatePlugin
         $translator = new TranslatorPlugin('ru', $sami, [
@@ -121,7 +122,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
             $this->assertStringStartsWith('<?php', $content);
         }
         // version is master by default
-        $dirExpected = __DIR__ . '/../mock/translations/mock';
+        $dirExpected = __DIR__ . '/../fixtures/translations/mock';
         $this->assertFileExists($dirExpected . '/CompleteDocumentedClass.pot');
         $this->assertFileExists($dirExpected . '/CompleteDocumentedClass.ru.po');
     }
@@ -131,7 +132,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      */
     public function testTranslationsPathPlaceholder()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/src');
 
         $translator = new TranslatorPlugin('ru', $sami, [
             'translationsPath' => '%build%/../translations/placeholded',
@@ -139,7 +140,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         ]);
         $i = $sami['files'];
         foreach ($i as $file) {
-            // Sami relies on straight file_get_contents
             $content = file_get_contents($file);
         }
         $dirExpected = __DIR__ . '/../runtime/translations/placeholded';
@@ -158,7 +158,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
      */
     public function testTranslationsPathVersionPlaceholder()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/src');
         $sami['build_dir'] = __DIR__ . '/../runtime/build/%version%';
 
         $sami['version'] = 'master';
@@ -200,7 +200,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
     public function testDetectNamespace()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/namespaces');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/namespaces');
 
         $translator = new TranslatorPlugin('ru', $sami);
 
@@ -218,7 +218,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
     public function testSignaturesStrategy()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/src');
 
         //todo move to singleton ?
         $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
@@ -229,7 +229,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $project = $sami['project'];
 
         $project->update();
-        $expectedDir = __DIR__ . '/../mock/translations/mock/';
+        $expectedDir = __DIR__ . '/../fixtures/translations/mock/';
         $this->assertTrue(is_dir($expectedDir));
         $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.pot');
         $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.ru.po');
@@ -237,7 +237,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 
     public function testInheritdocs()
     {
-        $sami = $this->setupSami(__DIR__ . '/../mock/src');
+        $sami = $this->setupSami(__DIR__ . '/../fixtures/src');
 
         $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
             'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
@@ -247,7 +247,7 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $project = $sami['project'];
 
         $project->update();
-        $pot = file_get_contents(__DIR__ . '/../mock/translations/mock/' . 'CompleteDocumentedClass.pot');
+        $pot = file_get_contents(__DIR__ . '/../fixtures/translations/mock/' . 'CompleteDocumentedClass.pot');
         $this->assertNotRegExp('/@inheritdoc/m', $pot, 'Inheritdocs must be resolved');
     }
 

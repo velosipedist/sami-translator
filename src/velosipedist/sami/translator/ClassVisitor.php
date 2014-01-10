@@ -40,9 +40,7 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * Build messages list indexed by unique signature
-     *
      * @param ClassReflection $class
-     *
      * @return array [msgid=>[msgstr, Reflection]]
      */
     private function collectMessages(ClassReflection $class)
@@ -57,9 +55,10 @@ class ClassVisitor implements ClassVisitorInterface
             $messages[$this->propertyKey($prop)] = [$prop->getDocComment(), $prop];
         }
         foreach ($class->getMethods() as $meth) {
-            if (strpos(strtolower(trim($meth->getDocComment())),'{@inheritdoc}') || !$meth->getDocComment()) {
+            if (strpos(strtolower(trim($meth->getDocComment())), '{@inheritdoc}') || !$meth->getDocComment()) {
                 $parentMeth = $class->getParentMethod($meth->getName());
-                if($parentMeth){
+                if ($parentMeth) {
+                    /** @var $meth MethodReflection */
                     $meth->setDocComment($parentMeth->getDocComment());
                 }
             }
@@ -73,7 +72,6 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param $prop
-     *
      * @return string
      */
     private function propertyKey($prop)
@@ -84,7 +82,6 @@ class ClassVisitor implements ClassVisitorInterface
     /**
      * @param $meth
      * @param $methodSignature
-     *
      * @return string
      */
     private function methodKey($meth, $methodSignature)
@@ -94,7 +91,6 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param PropertyReflection|MethodReflection $reflection
-     *
      * @return string
      */
     private function accessString($reflection)
@@ -120,11 +116,11 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param MethodReflection $meth
-     *
      * @return mixed
      */
     private function methodSignature(MethodReflection $meth)
     {
+        /** @noinspection PhpParamsInspection */
         return Arrays::from($meth->getParameters())
             ->each(
                 function (ParameterReflection $param) {
@@ -137,7 +133,6 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param ClassReflection $class
-     *
      * @return string
      */
     private function classKey(ClassReflection $class)
