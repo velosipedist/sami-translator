@@ -15,15 +15,15 @@ use Underscore\Types\Arrays;
  */
 class ClassVisitor implements ClassVisitorInterface
 {
-    private static $sami;
+    private $sami;
 
     /**
      * @param Sami $sami
      */
     public function __construct(Sami $sami)
     {
-        if (is_null(self::$sami)) {
-            self::$sami = $sami;
+        if (is_null($this->sami)) {
+            $this->sami = $sami;
         }
     }
 
@@ -33,7 +33,7 @@ class ClassVisitor implements ClassVisitorInterface
     function visit(ClassReflection $class)
     {
         /** @var $translator TranslatorPlugin */
-        $translator = self::$sami[TranslatorPlugin::ID];
+        $translator = $this->sami[TranslatorPlugin::ID];
         $messages = $this->collectMessages($class);
         $translator->translateClassReflection($class, $messages);
     }

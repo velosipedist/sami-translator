@@ -15,12 +15,15 @@ use velosipedist\sami\translator\TranslatorPlugin;
  */
 class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
 {
+    /** @var  Filesystem */
+    private $fs;
+
     public function setUp()
     {
+        $this->fs = new Filesystem();
         try {
-            $fs = new Filesystem();
-            $fs->remove(__DIR__ . '/../fixtures/translations');
-            $fs->remove(__DIR__ . '/../runtime');
+            $this->fs->remove(__DIR__ . '/../fixtures/translations');
+            $this->fs->remove(__DIR__ . '/../runtime');
         } catch (\Exception $e) {
         }
     }
@@ -256,7 +259,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $sami = $this->createSami(__DIR__ . '/../fixtures/src');
         $expectedDir = __DIR__ . '/../fixtures/translations/mock/';
 
-        //todo move to singleton ?
         $translator = new TranslatorPlugin('ru', $sami, [
             'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
             'translateOnly'       => false,
@@ -264,9 +266,15 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $sami[TranslatorPlugin::ID] = $translator;
         $sami['project']->update();
 
+        $this->fs->remove($sami['cache_dir']);
+
+        // drop all container common dependencies
+        unset($sami);
+
+        // again, in english
         $samiEn = $this->createSami(__DIR__ . '/../fixtures/src');
         $translator = new TranslatorPlugin('en', $samiEn, [
-            //            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
+            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
             'translateOnly' => false,
         ]);
         $samiEn[TranslatorPlugin::ID] = $translator;
