@@ -1,23 +1,21 @@
 <?php
 namespace tests\unit;
 
-use Gettext\Entries;
-use velosipedist\sami\translator\extractors\PhpdocExtractor;
+use Gettext\Extractors\Po;
 
 class ExtractorTest extends \PHPUnit_Framework_TestCase
 {
-
-    public function testIgnorePatterns()
+    public function testMultiline()
     {
-        $ex = new PhpdocExtractor();
-        $entries = new Entries();
-        $ex->parse(__DIR__ . '/../mock/src/CompleteDocumentedClass.php', $entries);
-        $allDocs = count($entries->getArrayCopy());
-
-        $ex::$ignoreDocPatterns = ['/@inheritdoc/'];
-        $entries = new Entries();
-        $ex->parse(__DIR__ . '/../mock/src/CompleteDocumentedClass.php', $entries);
-        $entriesArray = $entries->getArrayCopy();
-        $this->assertCount($allDocs - 1, $entriesArray);
+        $this->markTestIncomplete('Parse multiline po files?');
+        $docExpected = [
+            "single line id" => "First Line\nsecond line",
+            "multi line id start\nmulti line id end" => "Multiline First Line\nmultiline second line",
+        ];
+        $extractor = new Po();
+        $this->assertEquals(
+            $docExpected,
+            $extractor->extract(__DIR__.'/../fixtures/po/multiline.po')->getArrayCopy()
+        );
     }
 }

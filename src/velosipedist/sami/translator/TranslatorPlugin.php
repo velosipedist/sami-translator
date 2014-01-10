@@ -272,13 +272,7 @@ class TranslatorPlugin
         $iterator = new MultilangFilesIterator($finder);
         $this->container['files'] = $iterator;
 
-        // setup extractor
-        $ignoreDocPatterns = isset($options['ignoreDocPatterns'])
-            ? $options['ignoreDocPatterns']
-            : [];
-
         $dExtractor = self::$docExtractor = new PhpdocExtractor();
-        $dExtractor::$ignoreDocPatterns = $ignoreDocPatterns;
         $dExtractor::setTranslator($this);
 
         // setup stream wrapper

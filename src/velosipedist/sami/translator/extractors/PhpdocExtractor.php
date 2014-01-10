@@ -34,10 +34,6 @@ class PhpdocExtractor extends Extractor
             /** @var $translation Translation */
             $translation = $entries->insert(null, $msgid);
             $translation->setTranslation($phpDoc);
-
-            if (self::$useCommentedCodeAsEntriesComments) {
-//                $translation->addComment($phpDoc);
-            }
         }
         return $entries;
     }

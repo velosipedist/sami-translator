@@ -40,11 +40,6 @@ $sami = new Sami($iterator, $options);
 
 // now power it up with i18n with direct instantiation
 $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
-    // skip phpDocs containing stub docs
-    'ignoreDocPatterns'  => [
-        '/@inheritdoc/',
-        '/@copyright/'
-    ],
     // where we keep our .po + .pot + .mo translation files
     'translationsPath'   => 'any/path/you/want/to/keep/gettext/files',
 
