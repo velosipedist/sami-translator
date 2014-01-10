@@ -12,8 +12,6 @@ use velosipedist\sami\translator\TranslatorPlugin;
  */
 class PhpdocExtractor extends Extractor
 {
-    public static $useCommentedCodeAsEntriesComments = true;
-    public static $ignoreDocPatterns = [];
     private static $phpDocs;
     /** @var  TranslatorPlugin */
     private static $translator;
