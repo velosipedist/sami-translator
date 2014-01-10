@@ -100,12 +100,9 @@ class TranslatorPlugin
         }
     }
 
-
     /**
      * Open source code, extracts docs for template rewrite, then finds possible translations.
-     *
      * @param $path
-     *
      * @throws \RuntimeException
      * @return string
      */
@@ -137,10 +134,8 @@ class TranslatorPlugin
 
     /**
      * Process pairs of message-Reflection, replacing with current language strings
-     *
      * @param ClassReflection $class
      * @param array $messages
-     *
      * @return array
      */
     public function translateClassReflection(ClassReflection $class, $messages)
@@ -156,13 +151,13 @@ class TranslatorPlugin
                 $message[1]->setDocComment($translation->getTranslation());
             }
         }
+
         return $messages;
     }
 
     /**
      * @param $namespace
      * @param $className
-     *
      * @return string
      */
     private function findMoFile($namespace, $className)
@@ -173,7 +168,6 @@ class TranslatorPlugin
     /**
      * @param $namespace
      * @param $className
-     *
      * @return string
      */
     private function findPoFile($namespace, $className)
@@ -184,7 +178,6 @@ class TranslatorPlugin
     /**
      * @param $namespace
      * @param $className
-     *
      * @return string
      */
     private function findPotFile($namespace, $className)
@@ -194,7 +187,6 @@ class TranslatorPlugin
 
     /**
      * Used when no translationsPath specified
-     *
      * @return string
      */
     private function defaultTranslationsPath()
@@ -204,7 +196,6 @@ class TranslatorPlugin
 
     /**
      * @param $path
-     *
      * @return string
      */
     public function normalizePath($path)
@@ -214,7 +205,6 @@ class TranslatorPlugin
 
     /**
      * @param string $src
-     *
      * @throws ParseException
      * @return string
      */
@@ -225,12 +215,12 @@ class TranslatorPlugin
         if (!isset($matches['ns'])) {
             throw new ParseException("No namespace detected in: \n$src", ParseException::NAMESPACE_NOT_FOUND);
         }
+
         return $matches['ns'];
     }
 
     /**
      * @param $fileContents
-     *
      * @return array
      */
     protected static function toLines($fileContents)
@@ -240,7 +230,6 @@ class TranslatorPlugin
 
     /**
      * @param $path
-     *
      * @return string
      */
     private function parseTranslationsPath($path)
@@ -251,7 +240,6 @@ class TranslatorPlugin
     /**
      * @param $namespace
      * @param $className
-     *
      * @return string
      */
     public function resolveVersionedRelativePath($namespace, $className = null)
@@ -265,12 +253,12 @@ class TranslatorPlugin
         if (is_string($className)) {
             $path .= '/' . $className;
         }
+
         return $path;
     }
 
     /**
      * Set plugin to "key=phpdoc" mode
-     *
      * @param $options
      */
     private function usePhpdocsStrategy($options)
@@ -311,11 +299,9 @@ class TranslatorPlugin
 
     /**
      * Turn passed entries translations into current language
-     *
      * @param $namespace
      * @param $className
      * @param Entries $entries
-     *
      * @return Entries
      */
     private function localizeEntries($namespace, $className, Entries $entries)
@@ -347,11 +333,9 @@ class TranslatorPlugin
 
     /**
      * Create or update .pot files filled with actual keys
-     *
      * @param $namespace
      * @param $className
      * @param Entries $entries
-     *
      * @throws \RuntimeException
      */
     private function updateTranslationFiles($namespace, $className, Entries $entries)
@@ -359,25 +343,31 @@ class TranslatorPlugin
         $templateFileName = $this->findPotFile($namespace, $className);
         try {
             $extractor = new PoExtractor();
-            $previousEntries = $extractor->extract($templateFileName);
+            $entriesPrevious = $extractor->extract($templateFileName);
         } catch (\InvalidArgumentException $e) {
-            $previousEntries = $entries;
+            $entriesPrevious = $entries;
             $this->filesys->mkdir(dirname($templateFileName));
-            self::$generator
-                ->generateFile($entries, $this->findPoFile($namespace, $className));
         }
-        if ($previousEntries !== $entries) {
+
+        if (!file_exists($po = $this->findPoFile($namespace, $className))) {
+            self::$generator->generateFile($entries, $po);
+        }
+
+        $entriesToSave = $entries;
+        if ($entriesPrevious !== $entries) {
+            // ArrayObject dynamically updates itself for iterating, so we need copy to save
+            $entriesToSave = clone $entries;
             foreach ($entries as $entry) {
                 /** @var $entry Translation */
-                if (!$translation = $previousEntries->find(null, $entry->getOriginal())) {
-                    $newEntry = $entries->insert(null, $entry->getOriginal());
+                if (!$translation = $entriesPrevious->find(null, $entry->getOriginal())) {
+                    $newEntry = $entriesToSave->insert(null, $entry->getOriginal());
                     $newEntry->setTranslation($entry->getTranslation());
                 }
             }
         }
 
         $result = self::$generator
-            ->generateFile($entries, $templateFileName);
+            ->generateFile($entriesToSave, $templateFileName);
         if (!$result) {
             throw new \RuntimeException("Failed to generate $templateFileName");
         }
