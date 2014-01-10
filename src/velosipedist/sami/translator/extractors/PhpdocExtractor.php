@@ -4,6 +4,8 @@ namespace velosipedist\sami\translator\extractors;
 use Gettext\Entries;
 use Gettext\Extractors\Extractor;
 use Gettext\Translation;
+use velosipedist\sami\translator\ClassVisitor;
+use velosipedist\sami\translator\TranslatorPlugin;
 
 /**
  * Class PhpdocExtractor
@@ -13,48 +15,28 @@ class PhpdocExtractor extends Extractor
     public static $useCommentedCodeAsEntriesComments = true;
     public static $ignoreDocPatterns = [];
     private static $phpDocs;
+    /** @var  TranslatorPlugin */
+    private static $translator;
 
     static public function parse($file, Entries $entries)
     {
-        $fileContents = file_get_contents($file);
-
-        $allTokens = token_get_all($fileContents);
-
-        $lines = self::toLines($fileContents);
-
         $phpDocs = [];
-        foreach ($allTokens as $tok) {
-            if ($tok[0] == T_DOC_COMMENT) {
-                $phpDocs[$tok[2]] = $tok[1];
-            }
+        $reflection = self::$translator->getReflectionByFileName($file);
+
+        $messages = ClassVisitor::groupDocsBySignatures($reflection, false);
+        foreach ($messages as $msgid=>$msg) {
+            $phpDocs[$msgid] = $msg[1]->getDocComment();
         }
-        $ignoreDocPatterns = static::$ignoreDocPatterns;
-        $phpDocs = array_filter(
-            $phpDocs,
-            function ($doc) use ($ignoreDocPatterns) {
-                foreach ($ignoreDocPatterns as $pattern) {
-                    if (preg_match($pattern, $doc)) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-        );
 
         self::$phpDocs = $phpDocs;
 
-        foreach ($phpDocs as $lineNum => $phpDoc) {
+        foreach ($phpDocs as $msgid => $phpDoc) {
             /** @var $translation Translation */
-            $translation = $entries->insert(null, $phpDoc);
+            $translation = $entries->insert(null, $msgid);
             $translation->setTranslation($phpDoc);
 
             if (self::$useCommentedCodeAsEntriesComments) {
-                $i = 2;
-                do {
-                    $commentLine = trim($lines[$lineNum + $i], ' {');
-                    $i++;
-                } while (preg_match('/^\s*\*/', $commentLine));
-                $translation->addComment(trim($commentLine));
+//                $translation->addComment($phpDoc);
             }
         }
         return $entries;
@@ -76,6 +58,14 @@ class PhpdocExtractor extends Extractor
     public static function getPhpDocs()
     {
         return self::$phpDocs;
+    }
+
+    /**
+     * @param TranslatorPlugin $translator
+     */
+    public static function setTranslator(TranslatorPlugin $translator)
+    {
+        self::$translator = $translator;
     }
 
 }

@@ -219,31 +219,11 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         }
     }
 
-    public function testSignaturesStrategy()
-    {
-        $sami = $this->createSami(__DIR__ . '/../fixtures/src');
-
-        //todo move to singleton ?
-        $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
-            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
-            'translateOnly'       => false,
-        ]);
-        /** @var $project Project */
-        $project = $sami['project'];
-
-        $project->update();
-        $expectedDir = __DIR__ . '/../fixtures/translations/mock/';
-        $this->assertTrue(is_dir($expectedDir));
-        $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.pot');
-        $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.ru.po');
-    }
-
     public function testInheritdocs()
     {
         $sami = $this->createSami(__DIR__ . '/../fixtures/src');
 
         $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
-            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
             'translateOnly'       => false,
         ]);
         /** @var $project Project */
@@ -260,7 +240,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $expectedDir = __DIR__ . '/../fixtures/translations/mock/';
 
         $translator = new TranslatorPlugin('ru', $sami, [
-            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
             'translateOnly'       => false,
         ]);
         $sami[TranslatorPlugin::ID] = $translator;
@@ -274,7 +253,6 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         // again, in english
         $samiEn = $this->createSami(__DIR__ . '/../fixtures/src');
         $translator = new TranslatorPlugin('en', $samiEn, [
-            'messageKeysStrategy' => TranslatorPlugin::USE_SIGNATURES_AS_KEYS,
             'translateOnly' => false,
         ]);
         $samiEn[TranslatorPlugin::ID] = $translator;

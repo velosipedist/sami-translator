@@ -34,49 +34,54 @@ class ClassVisitor implements ClassVisitorInterface
     {
         /** @var $translator TranslatorPlugin */
         $translator = $this->sami[TranslatorPlugin::ID];
-        $messages = $this->collectMessages($class);
+        $messages = $this->groupDocsBySignatures($class);
         $translator->translateClassReflection($class, $messages);
+
+        return true;
     }
 
     /**
      * Build messages list indexed by unique signature
      * @param ClassReflection $class
+     * @param bool $addInherits
      * @return array [msgid=>[msgstr, Reflection]]
      */
-    private function collectMessages(ClassReflection $class)
+    public static function groupDocsBySignatures(ClassReflection $class, $addInherits = true)
     {
         $messages = [
-            $this->classKey($class) => [$class->getDocComment(), $class],
+            self::classKey($class) => [$class->getDocComment(), $class],
         ];
         foreach ($class->getConstants() as $const) {
-            $messages[$this->constKey($const)] = [$const->getDocComment(), $const];
+            $messages[self::constKey($const)] = [$const->getDocComment(), $const];
         }
         foreach ($class->getProperties() as $prop) {
-            $messages[$this->propertyKey($prop)] = [$prop->getDocComment(), $prop];
+            $messages[self::propertyKey($prop)] = [$prop->getDocComment(), $prop];
         }
         foreach ($class->getMethods() as $meth) {
             if (strpos(strtolower(trim($meth->getDocComment())), '{@inheritdoc}') || !$meth->getDocComment()) {
+                if(!$addInherits) {
+                    continue;
+                }
                 $parentMeth = $class->getParentMethod($meth->getName());
                 if ($parentMeth) {
                     /** @var $meth MethodReflection */
                     $meth->setDocComment($parentMeth->getDocComment());
                 }
             }
-            $methodSignature = $this->methodSignature($meth);
-            $methodKey = $this->methodKey($meth, $methodSignature);
-            $messages[$methodKey] = [$meth->getDocComment(), $meth];
+            $methodSignature = self::methodSignature($meth);
+            $messages[self::methodKey($meth, $methodSignature)] = [$meth->getDocComment(), $meth];
         }
 
         return $messages;
     }
 
     /**
-     * @param $prop
+     * @param PropertyReflection $prop
      * @return string
      */
-    private function propertyKey($prop)
+    private static function propertyKey(PropertyReflection $prop)
     {
-        return $this->accessString($prop) . $prop->getHintAsString() . ' $' . $prop->getName();
+        return self::accessString($prop) . $prop->getHintAsString() . ' $' . $prop->getName();
     }
 
     /**
@@ -84,16 +89,16 @@ class ClassVisitor implements ClassVisitorInterface
      * @param $methodSignature
      * @return string
      */
-    private function methodKey($meth, $methodSignature)
+    private static function methodKey($meth, $methodSignature)
     {
-        return $this->accessString($meth) . 'function ' . $meth->getName() . "($methodSignature)";
+        return self::accessString($meth) . 'function ' . $meth->getName() . "($methodSignature)";
     }
 
     /**
      * @param PropertyReflection|MethodReflection $reflection
      * @return string
      */
-    private function accessString($reflection)
+    private static function accessString($reflection)
     {
         $ret = '';
         $modifiers = (int) $reflection->toArray()['modifiers'];
@@ -118,7 +123,7 @@ class ClassVisitor implements ClassVisitorInterface
      * @param MethodReflection $meth
      * @return mixed
      */
-    private function methodSignature(MethodReflection $meth)
+    private static function methodSignature(MethodReflection $meth)
     {
         /** @noinspection PhpParamsInspection */
         return Arrays::from($meth->getParameters())
@@ -135,12 +140,12 @@ class ClassVisitor implements ClassVisitorInterface
      * @param ClassReflection $class
      * @return string
      */
-    private function classKey(ClassReflection $class)
+    private static function classKey(ClassReflection $class)
     {
         return 'class ' . $class->getShortName();
     }
 
-    private function constKey(ConstantReflection $const)
+    private static function constKey(ConstantReflection $const)
     {
         return 'const ' . $const->getName();
     }

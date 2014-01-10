@@ -7,6 +7,7 @@ use Gettext\Extractors\Mo;
 use Gettext\Extractors\Po as PoExtractor;
 use Gettext\Generators\Po as PoGenerator;
 use Gettext\Translation;
+use Sami\Parser\CodeParser;
 use Sami\Project;
 use Sami\Reflection\ClassReflection;
 use Sami\Sami;
@@ -245,7 +246,6 @@ class TranslatorPlugin
     public function resolveVersionedRelativePath($namespace, $className = null)
     {
         /** @var Project $project */
-        $filter = $this->container['filter'];
         $project = $this->container['project'];
 
         $v = is_null($version = $project->getVersion()) ? $this->container['version'] : $version->getName();
@@ -279,11 +279,7 @@ class TranslatorPlugin
 
         $dExtractor = self::$docExtractor = new PhpdocExtractor();
         $dExtractor::$ignoreDocPatterns = $ignoreDocPatterns;
-
-        if (isset($options['useContextComments'])) {
-            $useContextComments = (bool) $options['useContextComments'];
-            $dExtractor::$useCommentedCodeAsEntriesComments = $useContextComments;
-        }
+        $dExtractor::setTranslator($this);
 
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
@@ -371,5 +367,16 @@ class TranslatorPlugin
         if (!$result) {
             throw new \RuntimeException("Failed to generate $templateFileName");
         }
+    }
+
+    public function getReflectionByFileName($file)
+    {
+        /** @var $parser CodeParser */
+        $parser = $this->container['code_parser'];
+        $context = $parser->getContext();
+        $context->enterFile((string) $file, '');
+        $parser->parse(file_get_contents($file));
+        return current($context->leaveFile());
+//        throw new \UnexpectedValueException("Reflection for $file not found");
     }
 }

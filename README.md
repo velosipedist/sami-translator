@@ -54,10 +54,6 @@ $sami[TranslatorPlugin::ID] = new TranslatorPlugin('ru', $sami, [
 
     // path can be relative to build dir, to keep translations together with API build
     //'translationsPath' => '%build%/translations/', // add %version% anywhere, to your taste
-
-    // whether to add PhpDoc'ed code as translation comment, for sensible human-translating
-    'useContextComments' => true,
-
 ]);
 
 return $sami;

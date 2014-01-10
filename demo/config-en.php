@@ -25,11 +25,6 @@ $sami = new Sami($iterator, $options);
 
 $lang = 'en'; //todo pass from args
 
-$sami[TranslatorPlugin::ID] = new TranslatorPlugin($lang, $sami, [
-    'ignoreDocPatterns' => [
-        '/@inheritdoc/',
-        '/@copyright/'
-    ]
-]);
+$sami[TranslatorPlugin::ID] = new TranslatorPlugin($lang, $sami);
 
 return $sami;
