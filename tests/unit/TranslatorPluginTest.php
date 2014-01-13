@@ -264,4 +264,23 @@ class TranslatorPluginTest extends \PHPUnit_Framework_TestCase
         $this->assertFileExists($expectedDir . 'CompleteDocumentedClass.en.po');
     }
 
+    public function testNonClassFiles()
+    {
+        $path = __DIR__ . '/../fixtures/non-source-files';
+        $sami = $this->createSami($path);
+        $sami['files'] = Finder::create()
+            ->in($path)
+            ->name('*.php');
+        $translator = new TranslatorPlugin('en', $sami, [
+            'translateOnly' => false,
+        ]);
+
+        try{
+            $sami['project']->update();
+        }catch (\Exception $e){
+            $this->assertInstanceOf('velosipedist\sami\translator\ParseException',$e);
+            $this->assertEquals(ParseException::NON_SOURCE_FILE, $e->getCode());
+        }
+    }
+
 }

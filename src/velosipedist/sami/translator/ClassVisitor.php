@@ -30,7 +30,7 @@ class ClassVisitor implements ClassVisitorInterface
     /**
      * @inheritdoc
      */
-    function visit(ClassReflection $class)
+    public function visit(ClassReflection $class)
     {
         /** @var $translator TranslatorPlugin */
         $translator = $this->sami[TranslatorPlugin::ID];
@@ -43,23 +43,23 @@ class ClassVisitor implements ClassVisitorInterface
     /**
      * Build messages list indexed by unique signature
      * @param ClassReflection $class
-     * @param bool $addInherits
+     * @param bool $deep
      * @return array [msgid=>[msgstr, Reflection]]
      */
-    public static function groupDocsBySignatures(ClassReflection $class, $addInherits = true)
+    public static function groupDocsBySignatures(ClassReflection $class, $deep = true)
     {
         $messages = [
             self::classKey($class) => [$class->getDocComment(), $class],
         ];
         foreach ($class->getConstants() as $const) {
-            $messages[self::constKey($const)] = [$const->getDocComment(), $const];
+            $messages[self::constKey($const, $deep)] = [$const->getDocComment(), $const];
         }
         foreach ($class->getProperties() as $prop) {
-            $messages[self::propertyKey($prop)] = [$prop->getDocComment(), $prop];
+            $messages[self::propertyKey($prop, $deep)] = [$prop->getDocComment(), $prop];
         }
         foreach ($class->getMethods() as $meth) {
             if (strpos(strtolower(trim($meth->getDocComment())), '{@inheritdoc}') || !$meth->getDocComment()) {
-                if(!$addInherits) {
+                if (!$deep) {
                     continue;
                 }
                 $parentMeth = $class->getParentMethod($meth->getName());
@@ -68,7 +68,7 @@ class ClassVisitor implements ClassVisitorInterface
                     $meth->setDocComment($parentMeth->getDocComment());
                 }
             }
-            $methodSignature = self::methodSignature($meth);
+            $methodSignature = self::methodSignature($meth, $deep);
             $messages[self::methodKey($meth, $methodSignature)] = [$meth->getDocComment(), $meth];
         }
 
@@ -77,11 +77,13 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param PropertyReflection $prop
+     * @param bool $deep
      * @return string
      */
-    private static function propertyKey(PropertyReflection $prop)
+    private static function propertyKey(PropertyReflection $prop, $deep)
     {
-        return self::accessString($prop) . $prop->getHintAsString() . ' $' . $prop->getName();
+        $hint = $deep ? $prop->getHintAsString() : '';
+        return self::accessString($prop) . $hint . ' $' . $prop->getName();
     }
 
     /**
@@ -121,15 +123,17 @@ class ClassVisitor implements ClassVisitorInterface
 
     /**
      * @param MethodReflection $meth
+     * @param bool $deep
      * @return mixed
      */
-    private static function methodSignature(MethodReflection $meth)
+    private static function methodSignature(MethodReflection $meth, $deep)
     {
         /** @noinspection PhpParamsInspection */
         return Arrays::from($meth->getParameters())
             ->each(
-                function (ParameterReflection $param) {
-                    return $param->getHintAsString() . ' $' . $param->getName();
+                function (ParameterReflection $param) use ($deep) {
+                    $hint = $deep ? $param->getHintAsString() . ' ': '';
+                    return $hint . '$' . $param->getName();
                 }
             )
             ->implode(', ')
@@ -145,7 +149,12 @@ class ClassVisitor implements ClassVisitorInterface
         return 'class ' . $class->getShortName();
     }
 
-    private static function constKey(ConstantReflection $const)
+    /**
+     * @param ConstantReflection $const
+     * @param bool $deep
+     * @return string
+     */
+    private static function constKey(ConstantReflection $const, $deep)
     {
         return 'const ' . $const->getName();
     }

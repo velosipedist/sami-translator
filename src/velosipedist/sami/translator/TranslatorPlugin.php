@@ -13,8 +13,6 @@ use Sami\Reflection\ClassReflection;
 use Sami\Sami;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
-use Underscore\Types\String;
-use velosipedist\sami\translator\extractors\PhpdocExtractor;
 
 /**
  * Injects ability to output localized versions of every parsed lib version
@@ -26,10 +24,6 @@ class TranslatorPlugin
     const USE_PHPDOCS_AS_KEYS = 1;
     const USE_SIGNATURES_AS_KEYS = 2;
 
-    /**
-     * @var PhpdocExtractor $extractor
-     */
-    protected static $docExtractor;
     /**
      * @var PoExtractor $poExtractor
      */
@@ -104,25 +98,46 @@ class TranslatorPlugin
     /**
      * Open source code, extracts docs for template rewrite, then finds possible translations.
      * @param $path
-     * @throws \RuntimeException
+     * @throws ParseException
      * @return string
      */
     public function translateFile($path)
     {
-        $fileContents = file_get_contents($path);
-        $namespace = $this->detectSourceNamespace($fileContents);
-        $className = String::sliceTo(basename($path), '.php');
-        $phpdocExtractor = self::$docExtractor;
+        $phpDocs = [];
+        /** @var ClassReflection $reflection */
+        $reflection = $this->getReflectionByFileName($path);
+
+        $namespace = $reflection->getNamespace();
+
+        if(!is_string($namespace)){
+            throw new ParseException(
+                "Namespace not declared in $path",
+                ParseException::NAMESPACE_NOT_FOUND
+            );
+        }
+
+        $className = $reflection->getShortName();
+
+        //todo move call to this?
+        foreach (ClassVisitor::groupDocsBySignatures($reflection, false) as $msgid => $msg) {
+            $phpDocs[$msgid] = $msg[1]->getDocComment();
+        }
+
+        $entriesOriginal = new Entries();
+        foreach ($phpDocs as $msgid => $phpDoc) {
+            /** @var $translation Translation */
+            $entriesOriginal->insert(null, $msgid)->setTranslation($phpDoc);
+        }
+
         $entriesTranslated = $this->localizeEntries(
             $namespace,
             $className,
-            $phpdocExtractor
-                ->extract($path)
+            $entriesOriginal
         );
 
         $replaces = [];
 
-        foreach ($phpdocExtractor::getPhpDocs() as $phpDoc) {
+        foreach ($phpDocs as $phpDoc) {
             /** @var $translation Translation */
             $translation = $entriesTranslated->find(null, $phpDoc);
             if ($translation) {
@@ -130,7 +145,7 @@ class TranslatorPlugin
             }
         }
 
-        return strtr($fileContents, $replaces);
+        return strtr(file_get_contents($path), $replaces);
     }
 
     /**
@@ -205,22 +220,6 @@ class TranslatorPlugin
     }
 
     /**
-     * @param string $src
-     * @throws ParseException
-     * @return string
-     */
-    private function detectSourceNamespace($src)
-    {
-        //todo enforce checking, <?php at beginning, no commented namespace line
-        preg_match('/namespace\s+(?P<ns>[0-9a-z\x5c_]+)\s*;\s*\r?\n/i', $src, $matches);
-        if (!isset($matches['ns'])) {
-            throw new ParseException("No namespace detected in: \n$src", ParseException::NAMESPACE_NOT_FOUND);
-        }
-
-        return $matches['ns'];
-    }
-
-    /**
      * @param $fileContents
      * @return array
      */
@@ -259,9 +258,8 @@ class TranslatorPlugin
 
     /**
      * Set plugin to "key=phpdoc" mode
-     * @param $options
      */
-    private function usePhpdocsStrategy($options)
+    private function usePhpdocsStrategy()
     {
         // substitute any iterator passed to Sami
         $finder = $this->container['files'];
@@ -272,17 +270,14 @@ class TranslatorPlugin
         $iterator = new MultilangFilesIterator($finder);
         $this->container['files'] = $iterator;
 
-        $dExtractor = self::$docExtractor = new PhpdocExtractor();
-        $dExtractor::setTranslator($this);
-
         // setup stream wrapper
         TranslateStreamWrapper::setupTranslatorPlugin($this);
     }
 
     /**
-     * @param array $options
+     * Switch to signatures strategy
      */
-    private function useSignaturesStrategy($options)
+    private function useSignaturesStrategy()
     {
         $this->container['traverser']->addVisitor(new ClassVisitor($this->container));
     }
@@ -363,6 +358,11 @@ class TranslatorPlugin
         }
     }
 
+    /**
+     * @param $file
+     * @throws ParseException
+     * @return ClassReflection
+     */
     public function getReflectionByFileName($file)
     {
         /** @var $parser CodeParser */
@@ -370,7 +370,12 @@ class TranslatorPlugin
         $context = $parser->getContext();
         $context->enterFile((string) $file, '');
         $parser->parse(file_get_contents($file));
-        return current($context->leaveFile());
-//        throw new \UnexpectedValueException("Reflection for $file not found");
+        $reflection = current($context->leaveFile());
+        if(!$reflection instanceof ClassReflection)
+            throw new ParseException(
+                "Failed to parse {$file}. Update finder config to skip non-source files",
+                ParseException::NON_SOURCE_FILE
+            );
+        return $reflection;
     }
 }

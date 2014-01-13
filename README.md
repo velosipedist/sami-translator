@@ -4,6 +4,8 @@ Used with [Sami](https://github.com/fabpot/Sami) tool to generate multi-language
 
 Translation routines is powered up by [Gettext format](http://www.gnu.org/software/gettext/) and it's [php implementation](https://github.com/oscarotero/Gettext).
 
+__Attention:__ For now, only namespaced source files handled correctly.
+
 Basic usage is to prepare Sami config php file...
 
 ```php

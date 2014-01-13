@@ -1,0 +1,1 @@
+It's... not even php source file at all. It is something different.
