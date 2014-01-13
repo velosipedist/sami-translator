@@ -103,7 +103,6 @@ class TranslatorPlugin
      */
     public function translateFile($path)
     {
-        $phpDocs = [];
         /** @var ClassReflection $reflection */
         $reflection = $this->getReflectionByFileName($path);
 
@@ -119,14 +118,20 @@ class TranslatorPlugin
         $className = $reflection->getShortName();
 
         //todo move call to this?
+        $phpDocs = [];
         foreach (ClassVisitor::groupDocsBySignatures($reflection, false) as $msgid => $msg) {
-            $phpDocs[$msgid] = $msg[1]->getDocComment();
+            if (!is_null($msg[1]->getDocComment())) {
+                $phpDocs[$msgid] = (string) $msg[1]->getDocComment();
+            }
         }
 
         $entriesOriginal = new Entries();
         foreach ($phpDocs as $msgid => $phpDoc) {
             /** @var $translation Translation */
-            $entriesOriginal->insert(null, $msgid)->setTranslation($phpDoc);
+            $entry = $entriesOriginal->insert(null, $phpDoc);
+            $entry->setTranslation($phpDoc);
+            $entry->addComment($msgid);
+            $entry->setContext($msgid);
         }
 
         $entriesTranslated = $this->localizeEntries(
