@@ -128,10 +128,8 @@ class TranslatorPlugin
         $entriesOriginal = new Entries();
         foreach ($phpDocs as $msgid => $phpDoc) {
             /** @var $translation Translation */
-            $entry = $entriesOriginal->insert(null, $phpDoc);
+            $entry = $entriesOriginal->insert(null, $msgid);
             $entry->setTranslation($phpDoc);
-            $entry->addComment($msgid);
-            $entry->setContext($msgid);
         }
 
         $entriesTranslated = $this->localizeEntries(
@@ -142,12 +140,10 @@ class TranslatorPlugin
 
         $replaces = [];
 
-        foreach ($phpDocs as $phpDoc) {
+        foreach ($phpDocs as $msgid => $phpDoc) {
             /** @var $translation Translation */
-            $translation = $entriesTranslated->find(null, $phpDoc);
-            if ($translation) {
-                $replaces[$phpDoc] = $translation->getTranslation();
-            }
+            $translation = $entriesTranslated->find(null, $msgid);
+            $replaces[$phpDoc] = $translation->getTranslation();
         }
 
         return strtr(file_get_contents($path), $replaces);
@@ -291,75 +287,79 @@ class TranslatorPlugin
      * Turn passed entries translations into current language
      * @param $namespace
      * @param $className
-     * @param Entries $entries
+     * @param Entries $entriesOriginal
      * @return Entries
      */
-    private function localizeEntries($namespace, $className, Entries $entries)
+    private function localizeEntries($namespace, $className, Entries $entriesOriginal)
     {
         $moFileName = $this->findMoFile($namespace, $className);
         try {
-            $translatedEntries = self::$moExtractor
+            $entriesTranslated = self::$moExtractor
                 ->extract($moFileName);
         } catch (\InvalidArgumentException $e) {
             // if no translations, leave entries as-is
-            $translatedEntries = $entries;
+            $entriesTranslated = $entriesOriginal;
         }
 
-        if ($translatedEntries !== $entries) {
-            foreach ($entries as $entry) {
+        if ($entriesTranslated !== $entriesOriginal) {
+            foreach ($entriesOriginal as $entry) {
                 /** @var $entry Translation */
-                if ($translation = $translatedEntries->find(null, $entry->getOriginal())) {
+                if ($translation = $entriesTranslated->find(null, $entry->getOriginal())) {
                     $entry->setTranslation($translation->getTranslation());
                 }
             }
         }
 
         if (!$this->translateOnly) {
-            $this->updateTranslationFiles($namespace, $className, $entries);
+            $this->updateTranslationFiles(
+                $namespace,
+                $className,
+                $entriesOriginal,
+                $entriesTranslated
+            );
         }
 
-        return $entries;
+        return $entriesOriginal;
     }
 
     /**
      * Create or update .pot files filled with actual keys
      * @param $namespace
      * @param $className
-     * @param Entries $entries
+     * @param Entries $entriesOriginal
+     * @param \Gettext\Entries $entriesTranslated
      * @throws \RuntimeException
      */
-    private function updateTranslationFiles($namespace, $className, Entries $entries)
+    private function updateTranslationFiles($namespace, $className, Entries $entriesOriginal, Entries $entriesTranslated)
     {
+        // create template entries, make new if not stored earlier
         $templateFileName = $this->findPotFile($namespace, $className);
         try {
             $extractor = new PoExtractor();
-            $entriesPrevious = $extractor->extract($templateFileName);
+            $entriesOriginalSaved = $extractor->extract($templateFileName);
         } catch (\InvalidArgumentException $e) {
-            $entriesPrevious = $entries;
+            $entriesOriginalSaved = new Entries();
             $this->filesys->mkdir(dirname($templateFileName));
         }
 
-        if (!file_exists($po = $this->findPoFile($namespace, $className))) {
-            self::$generator->generateFile($entries, $po);
-        }
-
-        $entriesToSave = $entries;
-        if ($entriesPrevious !== $entries) {
-            // ArrayObject dynamically updates itself for iterating, so we need copy to save
-            $entriesToSave = clone $entries;
-            foreach ($entries as $entry) {
-                /** @var $entry Translation */
-                if (!$translation = $entriesPrevious->find(null, $entry->getOriginal())) {
-                    $newEntry = $entriesToSave->insert(null, $entry->getOriginal());
-                    $newEntry->setTranslation($entry->getTranslation());
-                }
+        // add new entries from last source version, with default translation values
+        foreach ($entriesOriginal as $entry) {
+            if (!$entriesOriginalSaved->find(null, $entry->getOriginal())) {
+                $entryNew = $entriesOriginalSaved->insert(null, $entry->getOriginal());
+                $entryNew->setTranslation($entry->getTranslation());
             }
         }
 
+        // save template anyway
         $result = self::$generator
-            ->generateFile($entriesToSave, $templateFileName);
+            ->generateFile($entriesOriginalSaved, $templateFileName);
         if (!$result) {
             throw new \RuntimeException("Failed to generate $templateFileName");
+        }
+
+        // if it is first translation run, create storage for translations
+        if (!file_exists($po = $this->findPoFile($namespace, $className))) {
+            self::$generator->generateFile($entriesTranslated, $po);
         }
     }
 
